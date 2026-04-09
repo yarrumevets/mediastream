@@ -1,0 +1,12 @@
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.code-workspace
+.vscode
+node_modules/
+*.log
+.env
+
+_ignored
+secret.config.js
+/public/config.js
