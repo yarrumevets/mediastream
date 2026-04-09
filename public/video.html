@@ -1,0 +1,73 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Stream</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1 id="pageTitleWrapper">
+      <img src="/images/logo.png" alt="Title Logo">
+      <span id="pageTitle">Video Library</span>
+    </h1>
+    <h2 id="videoTitle"></h1>
+    <video id="videoPlayer" controls>
+      Your browser does not support the video tag.
+      <track
+        id="subtitlesTrack"
+        kind="subtitles"
+        srclang="en"
+        label="English"
+      />
+    </video>
+    <!-- SCRIPTS -->
+    <script src="/config.js"></script>
+    <script>
+      const getBaseUrl = () => {
+        return `${window.location.origin}${window.location.pathname
+          .split("/")
+          .slice(0, -1)
+          .join("/")}`;
+      };
+      window.onload = function () {
+        // Set the page title from config.
+        const pageTitle = document.getElementById("pageTitle");
+        pageTitle.innerHTML = window.CONFIG.displayName;
+        const SAVE_POSITION_INTERVAL = 2000;
+        const url = new URL(window.location.href);
+
+        const videoUrl = url.searchParams.get("path");
+        const videoTitle = url.searchParams.get("name");
+        const videoType = url.searchParams.get("type"); // movie, series, ...
+        const subtitles = url.searchParams.get("subtitle");
+
+        const decodedVideoUrl = decodeURIComponent(videoUrl);
+        const videoFolder = decodedVideoUrl.split("/")[0];
+        // Page title
+        document.getElementById("videoTitle").innerHTML = videoTitle;
+        // Video player
+        const videoPlayer = document.getElementById("videoPlayer");
+        const videoSource = document.createElement("source");
+        videoPlayer.append(videoSource);
+        videoSource.src = `video?path=${videoUrl}&type=${videoType}`;
+        videoPlayer.currentTime = localStorage[videoUrl] || 0;
+        // // Subtitles
+        // if (subtitles) {
+        //   videoPlayer.addEventListener("loadedmetadata", () => {
+        //     const tracks = (videoPlayer.textTracks[0].mode = "showing");
+        //     const subtitleTrack = document.getElementById("subtitlesTrack");
+        //     subtitleTrack.src = `${getBaseUrl()}/subtitles?path=${encodeURIComponent(
+        //       videoFolder
+        //     )}/${encodeURIComponent(subtitles)}`;
+        //   });
+        // }
+        // Continuously update the current time in local storage.
+        setInterval(() => {
+          if (videoUrl && videoPlayer.currentTime > 0) {
+            localStorage[videoUrl] = videoPlayer.currentTime;
+          }
+        }, SAVE_POSITION_INTERVAL);
+      };
+    </script>
+  </body>
+</html>

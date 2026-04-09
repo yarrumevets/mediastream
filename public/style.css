@@ -1,0 +1,70 @@
+/* Elements */
+html {
+  font-size: 16px;
+}
+
+body {
+  background-color: #222222;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  text-align: center;
+}
+
+main {
+}
+
+ul {
+  list-style: none;
+}
+
+a {
+  color: pink;
+}
+
+span {
+  color: lightblue;
+}
+
+/* ------------------------------------------- */
+
+/* Page Title */
+#pageTitleWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1em;
+  margin: 0.5em auto;
+}
+#pageTitleWrapper img {
+  height: 1em;
+}
+#pageTitle {
+  font-size: 5rem;
+  color: red;
+  text-shadow: #000 1px 0 10px;
+}
+
+.rootfolder {
+  font-size: 2vw;
+}
+
+/* Cover art */
+.cover {
+  width: 200px;
+  height: 300px;
+  border: 5px solid seashell;
+}
+
+.cover:hover {
+  filter: grayscale(1);
+}
+
+/* video {
+  margin: 0 auto;
+  display: block;
+  background-color: red;
+  width: 90vw;
+} */
