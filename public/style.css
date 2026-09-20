@@ -47,24 +47,48 @@ span {
   text-shadow: #000 1px 0 10px;
 }
 
-.rootfolder {
-  font-size: 2vw;
+ul#filesList {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1vw;
 }
 
-/* Cover art */
-.cover {
+ul#filesList li.fileWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1vw;
+}
+
+.navBack {
+  font-size: 3em;
+  cursor: pointer;
+}
+.navBack:hover {
+  color: red;
+}
+
+/* Display the root folders differently */
+/* .rootfolder {
+  font-size: 2vw;
+  width: 100vw;
+  margin: 1vw 0 1vw 0;
+} */
+
+.fileWrapper {
+  width: 220px;
+  height: 330px;
+  background-color: lightgoldenrodyellow;
+}
+
+.coverPic {
   width: 200px;
   height: 300px;
   border: 5px solid seashell;
 }
 
-.cover:hover {
-  filter: grayscale(1);
-}
+/* GLOBAL OVERRIDES */
 
-/* video {
-  margin: 0 auto;
-  display: block;
-  background-color: red;
-  width: 90vw;
-} */
+.hidden {
+  display: none !important;
+}

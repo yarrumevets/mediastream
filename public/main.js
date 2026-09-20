@@ -1,4 +1,6 @@
 const elFileList = document.getElementById("filesList");
+const elMainSection = document.getElementById("mainSection");
+const navBackButtons = Array.from(document.getElementsByClassName("navBack")); // Buttons array never changes.
 
 // ----- Navigation / Router -----
 // Get the current url path if any
@@ -14,56 +16,115 @@ const navigate = (path) => {
   window.history.pushState({}, "", newUrl);
   getFolderContents(path);
 };
+let currentNavBackHander;
 
-// ---- util functions ----
-// Build the back link
-const buildNavBackLink = (parent) => {
-  const elUpLi = document.createElement("li");
-  const elUpLink = document.createElement("a");
-  elUpLink.innerText = "⬅ back...";
-  elUpLi.appendChild(elUpLink);
-  elUpLink.addEventListener("click", () => {
+// =========[UTILITY FUNCTIONS]=========
+// Back navigation button
+const navBackButtonsSetup = (parent) => {
+  if (currentNavBackHander) {
+    navBackButtons.forEach((n) =>
+      n.removeEventListener("click", currentNavBackHander),
+    );
+  }
+  currentNavBackHander = () => {
     navigate(parent);
+  };
+  navBackButtons.forEach((n) => {
+    n.classList.remove("hidden");
+    n.addEventListener("click", currentNavBackHander);
   });
-  return elUpLi;
+};
+const navBackButtonsRemove = () => {
+  console.log("navBackButtons: ", navBackButtons);
+  navBackButtons.forEach((n) => {
+    n.classList.add("hidden");
+  });
 };
 
-// Build link (file or dir)
-const buildDirLink = (f, isRoot) => {
-  const elListItem = document.createElement("li");
-  let elText;
-  if (f.isDir || isRoot) {
-    elText = document.createElement("a");
-    elText.addEventListener("click", () => {
-      navigate(f.treePath);
+// Check for cover.jpg, COVer2.jpg, etc.
+const checkIsCoverImage = (fname) => {
+  return /^cover\d*\.jpg$/i.test(fname);
+};
+
+// Create a root link.
+const createRootElement = (f) => {
+  const elLink = document.createElement("a");
+  elLink.addEventListener("click", () => {
+    navigate(f.treePath);
+  });
+  elLink.innerText = f.displayName || f.name;
+  elLink.classList.add("rootfolder"); // root folder special styling.
+  return elLink;
+};
+
+const createFolderElement = (f) => {
+  const elLink = document.createElement("a");
+  elLink.addEventListener("click", () => {
+    navigate(f.treePath);
+  });
+  elLink.setAttribute("title", f.name);
+  // Folder cover images
+  let elCoverImage;
+  let covers;
+  if (f.children && f.children.length) {
+    covers = f.children.filter((cf) => {
+      return checkIsCoverImage(cf.name);
     });
-    elText.setAttribute("title", f.treePath);
+  }
+  if (covers && covers.length) {
+    elCoverImage = document.createElement("img");
+    elCoverImage.setAttribute(
+      "src",
+      `/file?path=${encodeURIComponent(covers[0].treePath)}`,
+    );
+    elCoverImage.classList.add("coverPic");
+  }
+  const elLinkLabel = document.createElement("p");
+  elLinkLabel.innerText = f.name;
+  if (elCoverImage) elLink.appendChild(elCoverImage);
+  elLink.appendChild(elLinkLabel);
+  return elLink;
+};
+
+// Build link for each file, folder, root.
+const buildDirLink = (f, isRoot) => {
+  let elListItem = null;
+  const createElListItem = () => {
+    elListItem = document.createElement("li");
+    elListItem.classList.add("fileWrapper");
+    return elListItem;
+  };
+  if (isRoot) {
+    createElListItem();
+    elListItem.appendChild(createRootElement(f));
+  } else if (f.isDir) {
+    createElListItem();
+    elListItem.appendChild(createFolderElement(f));
   } else {
-    if (f.ext === "jpg") {
-      // @TODO - check that it's a cover[#].jpg , etc. - Show the image instead of a link
-      elText = document.createElement("a");
-      elText.setAttribute(
+    if (checkIsCoverImage(f.name)) {
+      // Cover image.
+      createElListItem();
+      const elCoverImage = document.createElement("img");
+      elCoverImage.classList.add("coverPic");
+      elCoverImage.setAttribute(
+        "src",
+        `/file?path=${encodeURIComponent(f.treePath)}`,
+      );
+      elListItem.appendChild(elCoverImage);
+    } else if (f.ext === "mp4" || f.ext === "mkv" || f.ext === "avi") {
+      // Video file
+      createElListItem();
+      const elLink = document.createElement("a");
+      elLink.innerText = f.name;
+      elLink.setAttribute(
         "href",
         `/file?path=${encodeURIComponent(f.treePath)}`,
       );
-    } else if (f.ext === "mp4" || f.ext === "mkv") {
-      // @TODO: Link to a dedicated video page get all the logic for storing/restarting progress etc.
-      elText = document.createElement("a");
-      elText.setAttribute(
-        "href",
-        `/file?path=${encodeURIComponent(f.treePath)}`,
-      );
+      elListItem.appendChild(elLink);
     } else {
-      elText = document.createElement("span");
+      // any other file
     }
   }
-  if (isRoot) {
-    elText.innerText = f.displayName || f.name;
-    elText.classList.add("rootfolder");
-  } else {
-    elText.innerText = f.name; // Display name only for custom root-level
-  }
-  elListItem.appendChild(elText);
   return elListItem;
 };
 
@@ -71,18 +132,22 @@ const buildListOfLinks = (data, isRoot) => {
   console.log("Fetched data: ", data);
   const parent = data.parent;
   const files = data.files;
-  // Nav back to parent links.
+  // Back-button
   if (!isRoot) {
-    elFileList.appendChild(buildNavBackLink(parent));
+    navBackButtonsSetup(parent);
+  } else {
+    navBackButtonsRemove();
   }
-  // Links for all files and folders
+  // Create content for all relevant files/folders.
   for (const f of files) {
-    elFileList.appendChild(buildDirLink(f, isRoot));
+    const fileEl = buildDirLink(f, isRoot);
+    if (fileEl) elFileList.appendChild(fileEl);
   }
 };
 
 const getFolderContents = (path) => {
   const isRoot = !path;
+  console.log("yo");
   elFileList.innerHTML = "";
   const url = path ? `/dirtree?path=${encodeURIComponent(path)}` : `/dirtree`;
   fetch(url)

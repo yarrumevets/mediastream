@@ -1,5 +1,5 @@
 // Valid file tyes by category
-const videoTypes = ["mp4", "mkv"];
+const videoTypes = ["mp4", "mkv", "avi"];
 const subtitleTypes = ["vtt", "srt"];
 const imageTypes = ["jpg", "png"];
 

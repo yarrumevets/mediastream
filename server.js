@@ -24,6 +24,8 @@ app.get("/dirtree", async (req, res) => {
       parent: null,
     });
   }
+
+  // All other nested files/folders
   let files = [];
   const parts = req.query.path.split("/").filter(Boolean);
   console.log("parts: ", parts);
@@ -36,7 +38,17 @@ app.get("/dirtree", async (req, res) => {
     }
   }
   const parent = parts.length > 1 ? parts.slice(0, -1).join("/") : null;
-  files = current.children.map(({ children, ...rest }) => rest);
+  // files = current.children.map(({ children, ...rest }) => rest); // no children, not sending what is in each folder
+  files = current.children.map(({ children, ...rest }) => ({
+    ...rest,
+    children:
+      children?.map((c) => {
+        return {
+          name: c.name,
+          treePath: c.treePath,
+        };
+      }) || [], // we need at least the list of names of direct child files/folders (like, displaying cover pic and other basic info)
+  }));
   res.json({ files, parent });
 });
 
