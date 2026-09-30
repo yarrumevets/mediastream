@@ -6,20 +6,22 @@ const navBackButtons = Array.from(document.getElementsByClassName("navBack")); /
 // Get the current url path if any
 const urlParams = new URLSearchParams(window.location.search);
 const initialPath = urlParams.get("path") || "";
+
 // Browser arrow buttons trigger updates to the page.
 window.addEventListener("popstate", () => {
   const params = new URLSearchParams(window.location.search);
-  getFolderContents(params.get("path") || "");
+  buildPage(params.get("path") || "");
 });
+
 const navigate = (path) => {
   const newUrl = path ? `?path=${encodeURIComponent(path)}` : "/";
   window.history.pushState({}, "", newUrl);
-  getFolderContents(path);
+  buildPage(path);
 };
 let currentNavBackHander;
 
 // =========[UTILITY FUNCTIONS]=========
-// Back navigation button
+
 const navBackButtonsSetup = (parent) => {
   if (currentNavBackHander) {
     navBackButtons.forEach((n) =>
@@ -34,6 +36,7 @@ const navBackButtonsSetup = (parent) => {
     n.addEventListener("click", currentNavBackHander);
   });
 };
+
 const navBackButtonsRemove = () => {
   console.log("navBackButtons: ", navBackButtons);
   navBackButtons.forEach((n) => {
@@ -116,10 +119,8 @@ const buildDirLink = (f, isRoot) => {
       createElListItem();
       const elLink = document.createElement("a");
       elLink.innerText = f.name;
-      elLink.setAttribute(
-        "href",
-        `/file?path=${encodeURIComponent(f.treePath)}`,
-      );
+      elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}`;
+      //elLink.href = `/file?path=${encodeURIComponent(f.treePath)}`, // Plays the video file directly.
       elListItem.appendChild(elLink);
     } else {
       // any other file
@@ -129,7 +130,6 @@ const buildDirLink = (f, isRoot) => {
 };
 
 const buildListOfLinks = (data, isRoot) => {
-  console.log("Fetched data: ", data);
   const parent = data.parent;
   const files = data.files;
   // Back-button
@@ -145,20 +145,23 @@ const buildListOfLinks = (data, isRoot) => {
   }
 };
 
-const getFolderContents = (path) => {
-  const isRoot = !path;
-  console.log("yo");
-  elFileList.innerHTML = "";
+const getFolderContents = async (path) => {
+  console.log("path: ", path);
   const url = path ? `/dirtree?path=${encodeURIComponent(path)}` : `/dirtree`;
-  fetch(url)
-    .then((res) => res.json())
-    .then((data) => {
-      buildListOfLinks(data, isRoot);
-    })
-    .catch((err) => {
-      console.error("Failed to fetch folder contents:", err);
-      elFileList.innerHTML = `<li>Error loading files.</li>`;
-    });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 };
 
-getFolderContents(initialPath);
+const buildPage = async (path) => {
+  elFileList.innerHTML = "";
+  try {
+    const folderTree = await getFolderContents(path);
+    buildListOfLinks(folderTree, !path);
+  } catch (err) {
+    console.error("Failed to fetch folder contents: ", err);
+    elFileList.innerHTML = `<li>Error loading files.</li>`;
+  }
+};
+
+buildPage(initialPath);

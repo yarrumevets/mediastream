@@ -4,6 +4,7 @@ const subtitleTypes = ["vtt", "srt"];
 const imageTypes = ["jpg", "png"];
 
 const config = {
+  videoTypes,
   validFileTypes: [...videoTypes, ...subtitleTypes, ...imageTypes],
 };
 export default config;

@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import config from "./config.js";
 import secretConfig from "./secret.config.js";
+import crypto from "crypto";
 
 const buildDirectoryTree = async (dir, parentTreePath) => {
   const results = [];
@@ -55,4 +56,60 @@ const buildMediaTree = async () => {
   return mediaTree;
 };
 
-export { buildMediaTree };
+const HASH_BYTE_LIMIT = 10 * 1024 * 1024; // first 10MB
+const computeMediaId = async (filePath, fileSize) => {
+  const hash = crypto.createHash("sha256");
+  const stream = fs.createReadStream(filePath, {
+    start: 0,
+    end: HASH_BYTE_LIMIT - 1,
+  });
+  for await (const chunk of stream) {
+    hash.update(chunk);
+  }
+  hash.update(String(fileSize));
+  return hash.digest("hex");
+};
+// Walks the media tree once, computing an ID for every file.
+// Returns files with a unique ID, and groups of files sharing an ID.
+const scanMediaFiles = async (mediaTree) => {
+  const filesById = new Map();
+  const walk = async (nodes) => {
+    for (const node of nodes) {
+      console.log("node: ", node);
+
+      if (node.children) {
+        await walk(node.children);
+        continue;
+      }
+
+      if (!config.videoTypes.includes(node.ext)) {
+        continue;
+      }
+
+      const id = await computeMediaId(node.path, node.size);
+      const file = {
+        id,
+        path: node.path,
+        filename: node.name,
+        fileSize: node.size,
+      };
+      if (!filesById.has(id)) {
+        filesById.set(id, []);
+      }
+      filesById.get(id).push(file);
+    }
+  };
+  await walk(mediaTree);
+  const uniqueFiles = [];
+  const duplicateGroups = [];
+  for (const files of filesById.values()) {
+    if (files.length === 1) {
+      uniqueFiles.push(files[0]);
+    } else {
+      duplicateGroups.push(files);
+    }
+  }
+  return { uniqueFiles, duplicateGroups };
+};
+
+export { buildMediaTree, scanMediaFiles };

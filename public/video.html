@@ -49,7 +49,7 @@
         const videoPlayer = document.getElementById("videoPlayer");
         const videoSource = document.createElement("source");
         videoPlayer.append(videoSource);
-        videoSource.src = `video?path=${videoUrl}&type=${videoType}`;
+        videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
         videoPlayer.currentTime = localStorage[videoUrl] || 0;
         // // Subtitles
         // if (subtitles) {
