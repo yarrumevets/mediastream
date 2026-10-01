@@ -1,4 +1,5 @@
 import fs from "fs";
+import db from "./db.js";
 import path from "path";
 import config from "./config.js";
 import secretConfig from "./secret.config.js";
@@ -12,11 +13,17 @@ const buildDirectoryTree = async (dir, parentTreePath) => {
     const stats = fs.statSync(fullPath);
     const isDir = stats.isDirectory();
     const ext = isDir ? null : path.extname(item).slice(1); // remove the '.'
+
+    const media = !isDir
+      ? db.prepare("SELECT id FROM media WHERE path = ?").get(fullPath)
+      : null;
+
     if (isDir || config.validFileTypes.includes(ext)) {
       // Note: for files like ".env", the "env" is the name and the extension is empty.
       // leading '.' are explicitely ignored.
       const treePath = `${parentTreePath}/${item}`;
       const fileData = {
+        id: media?.id,
         name: item,
         ext,
         isDir,
@@ -76,7 +83,6 @@ const scanMediaFiles = async (mediaTree) => {
   const walk = async (nodes) => {
     for (const node of nodes) {
       console.log("node: ", node);
-
       if (node.children) {
         await walk(node.children);
         continue;
@@ -85,7 +91,6 @@ const scanMediaFiles = async (mediaTree) => {
       if (!config.videoTypes.includes(node.ext)) {
         continue;
       }
-
       const id = await computeMediaId(node.path, node.size);
       const file = {
         id,
@@ -112,4 +117,16 @@ const scanMediaFiles = async (mediaTree) => {
   return { uniqueFiles, duplicateGroups };
 };
 
-export { buildMediaTree, scanMediaFiles };
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+};
+const verifyPassword = (password, stored) => {
+  const [salt, hash] = stored.split(":");
+  return crypto.timingSafeEqual(
+    Buffer.from(hash, "hex"),
+    crypto.scryptSync(password, salt, 64),
+  );
+};
+export { buildMediaTree, scanMediaFiles, hashPassword, verifyPassword };

@@ -6,10 +6,11 @@ const db = new Database("media.db");
 // Booleans 0 / 1 (ex: watched, favorite)
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-  );
+    name TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
+    );
 
   CREATE TABLE IF NOT EXISTS media (
     id TEXT PRIMARY KEY,

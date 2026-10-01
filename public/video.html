@@ -40,6 +40,7 @@
         const videoTitle = url.searchParams.get("name");
         const videoType = url.searchParams.get("type"); // movie, series, ...
         const subtitles = url.searchParams.get("subtitle");
+        const videoId = url.searchParams.get("id");
 
         const decodedVideoUrl = decodeURIComponent(videoUrl);
         const videoFolder = decodedVideoUrl.split("/")[0];
@@ -50,7 +51,33 @@
         const videoSource = document.createElement("source");
         videoPlayer.append(videoSource);
         videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
-        videoPlayer.currentTime = localStorage[videoUrl] || 0;
+
+        // videoPlayer.currentTime = localStorage[videoUrl] || 0;
+        fetch(`/progress?id=${videoId}`)
+          .then((res) => res.json())
+          .then((data) => {
+            videoPlayer.currentTime = data.position;
+          });
+
+          // Continuously save the current time to the backend.
+        setInterval(() => {
+          // if (videoUrl && videoPlayer.currentTime > 0) {
+          //   localStorage[videoUrl] = videoPlayer.currentTime;
+          // }
+          if (videoId && videoPlayer.currentTime > 0) {
+            fetch("/progress", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: videoId,
+                position: Math.floor(videoPlayer.currentTime),
+              }),
+            });
+          }
+        }, SAVE_POSITION_INTERVAL);
+
+        // @TODO: LOCAL STORAGE - USE AS A BACKUP
+        //videoPlayer.currentTime = localStorage[videoUrl] || 0;
         // // Subtitles
         // if (subtitles) {
         //   videoPlayer.addEventListener("loadedmetadata", () => {
@@ -62,11 +89,12 @@
         //   });
         // }
         // Continuously update the current time in local storage.
-        setInterval(() => {
-          if (videoUrl && videoPlayer.currentTime > 0) {
-            localStorage[videoUrl] = videoPlayer.currentTime;
-          }
-        }, SAVE_POSITION_INTERVAL);
+        // setInterval(() => {
+        //   if (videoUrl && videoPlayer.currentTime > 0) {
+        //     localStorage[videoUrl] = videoPlayer.currentTime;
+        //   }
+        // }, SAVE_POSITION_INTERVAL);
+
       };
     </script>
   </body>

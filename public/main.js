@@ -119,7 +119,11 @@ const buildDirLink = (f, isRoot) => {
       createElListItem();
       const elLink = document.createElement("a");
       elLink.innerText = f.name;
-      elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}`;
+      // elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}`;
+
+      // elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}&id=${f.id}`;
+      elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}&id=${encodeURIComponent(f.id)}`;
+
       //elLink.href = `/file?path=${encodeURIComponent(f.treePath)}`, // Plays the video file directly.
       elListItem.appendChild(elLink);
     } else {
