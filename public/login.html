@@ -16,6 +16,10 @@
       <button type="submit">Sign up</button>
     </form>
 
+    <form id="logoutForm">
+      <button type="submit">Logout</button>
+    </form>
+
     <script>
       const setupForm = (formId, endpoint, successMsg) => {
         document
@@ -36,6 +40,7 @@
       };
       setupForm("loginForm", "/login", "Login successful.");
       setupForm("signupForm", "/signup", "Signup successful.");
+      setupForm("logoutForm", "/logout", "Logout successful.");
     </script>
   </body>
 </html>
