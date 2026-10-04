@@ -29,12 +29,14 @@
           .slice(0, -1)
           .join("/")}`;
       };
+
       window.onload = function () {
         // Set the page title from config.
         const pageTitle = document.getElementById("pageTitle");
         pageTitle.innerHTML = window.CONFIG.displayName;
-        const SAVE_POSITION_INTERVAL = 2000;
+        const SAVE_POSITION_INTERVAL = 53; // 53 is just an arbitrary but more searchable number around 50ms.
         const url = new URL(window.location.href);
+        const autoplay = url.searchParams.get("autoplay") === "1";
 
         const videoUrl = url.searchParams.get("path");
         const videoTitle = url.searchParams.get("name");
@@ -52,29 +54,58 @@
         videoPlayer.append(videoSource);
         videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
 
-        // videoPlayer.currentTime = localStorage[videoUrl] || 0;
+        const clientId = Math.random().toString(36).slice(2);
+        const IGNORE_LOCAL_EVENTS_MS = 1000;
+        let lastSeq = 0;
+        let ignoreLocalEventsUntil = 0;
+        const postJson = (endpoint, body) =>
+          fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: videoId, path: videoUrl, name: videoTitle, ...body }),
+          });
+        // Apply another client's play / pause / seek without re-broadcasting it.
+        const applyRemoteState = (position, paused) => {
+          ignoreLocalEventsUntil = Date.now() + IGNORE_LOCAL_EVENTS_MS;
+          videoPlayer.currentTime = position;
+          if (paused) videoPlayer.pause();
+          else videoPlayer.play().catch(() => {});
+        };
+        const sendControl = (paused) => {
+          if (Date.now() < ignoreLocalEventsUntil) return;
+          postJson("/control", { clientId, paused, position: videoPlayer.currentTime });
+        };
+        videoPlayer.addEventListener("play", () => sendControl(false));
+        videoPlayer.addEventListener("pause", () => sendControl(true));
+        videoPlayer.addEventListener("seeking", () => sendControl(videoPlayer.paused));
+
+        let pending = false; // ensures there are no overlapping requests. prev request must finish before next.
+        const heartbeat = async () => {
+          if (!videoId || pending) return;
+          pending = true;
+          try {
+
+            const res = await postJson("/progress", { position: videoPlayer.currentTime });
+            const state = await res.json();
+            if (state.seq > lastSeq) {
+              lastSeq = state.seq;
+              if (state.controlClientId !== clientId) {
+                applyRemoteState(state.controlPosition, state.paused);
+              }
+            }
+          } finally {
+            pending = false;
+          }
+        };
+
+        // Join in the shared state, then start the heartbeat.
         fetch(`/progress?id=${videoId}`)
           .then((res) => res.json())
           .then((data) => {
-            videoPlayer.currentTime = data.position;
+            lastSeq = data.seq;
+            applyRemoteState(data.position, data.paused || !autoplay);
+            setInterval(heartbeat, SAVE_POSITION_INTERVAL);
           });
-
-          // Continuously save the current time to the backend.
-        setInterval(() => {
-          // if (videoUrl && videoPlayer.currentTime > 0) {
-          //   localStorage[videoUrl] = videoPlayer.currentTime;
-          // }
-          if (videoId && videoPlayer.currentTime > 0) {
-            fetch("/progress", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: videoId,
-                position: Math.floor(videoPlayer.currentTime),
-              }),
-            });
-          }
-        }, SAVE_POSITION_INTERVAL);
 
         // @TODO: LOCAL STORAGE - USE AS A BACKUP
         //videoPlayer.currentTime = localStorage[videoUrl] || 0;

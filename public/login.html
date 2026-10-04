@@ -20,8 +20,25 @@
       <button type="submit">Logout</button>
     </form>
 
+    <div>
+      <!-- @TODO: remove this p tag -->
+      <p>Watching Along:</p>
+      <a id="watchAlongLink" hidden></a>
+    </div>
+
     <script>
-      const setupForm = (formId, endpoint, successMsg) => {
+      const showWatchAlong = async () => {
+        const res = await fetch("/last-watched");
+        if (!res.ok) return;
+        const { video } = await res.json();
+        if (!video?.watchingNow) return;
+        const link = document.getElementById("watchAlongLink");
+        link.href = `/video.html?path=${encodeURIComponent(video.treePath)}&name=${encodeURIComponent(video.name)}&id=${encodeURIComponent(video.id)}&autoplay=1`;
+        link.innerText = `Watch along: ${video.name}`;
+        link.hidden = false;
+      };
+
+      const setupForm = (formId, endpoint, successMsg, onSuccess) => {
         document
           .getElementById(formId)
           .addEventListener("submit", async (e) => {
@@ -36,9 +53,10 @@
               }),
             });
             if (res.ok) console.log(successMsg);
+            if (res.ok && onSuccess) onSuccess();
           });
       };
-      setupForm("loginForm", "/login", "Login successful.");
+      setupForm("loginForm", "/login", "Login successful.", showWatchAlong);
       setupForm("signupForm", "/signup", "Signup successful.");
       setupForm("logoutForm", "/logout", "Logout successful.");
     </script>

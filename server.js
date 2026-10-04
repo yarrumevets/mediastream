@@ -8,8 +8,20 @@ import {
   AUTH_COOKIE_NAME,
   AUTH_COOKIE_OPTIONS,
 } from "./auth.js";
-import { initMedia, getDirContents, getFilePath } from "./media.js";
-import { getProgress, saveProgress } from "./playback.js";
+import {
+  initMedia,
+  getDirContents,
+  getFilePath,
+  findNodeById,
+} from "./media.js";
+import {
+  getProgress,
+  saveProgress,
+  saveControl,
+  getLastWatched,
+} from "./playback.js";
+
+const WATCHING_NOW_MS = 60 * 1000;
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 
@@ -58,14 +70,40 @@ app.get("/file", (req, res) => {
 // -------------------------------[ PLAYBACK ]----------------------------------//
 
 app.get("/progress", (req, res) => {
-  res.json({ position: getProgress(req.userId, req.query.id) });
+  res.json(getProgress(req.userId, req.query.id));
 });
 
 app.post("/progress", (req, res) => {
-  saveProgress(req.userId, req.body.id, req.body.position);
+  const { id, position, path, name } = req.body;
+  res.json(saveProgress(req.userId, id, position, path, name));
+});
+
+app.post("/control", (req, res) => {
+  const { id, path, name, clientId, paused, position } = req.body;
+  saveControl(req.userId, id, { clientId, paused, position }, path, name);
   res.json({ ok: true });
 });
 
 app.listen(secretConfig.port, () => {
   console.log(`Server running on http://localhost:${secretConfig.port}`);
+});
+
+// app.get("/last-watched", (req, res) => {
+//   const last = getLastWatched(req.userId);
+//   const node = last && findNodeById(last.media_id);
+//   if (!node) return res.json({ video: null });
+//   res.json({
+//     video: {
+//       id: node.id,
+//       name: node.name,
+//       treePath: node.treePath,
+//       watchingNow:
+//         Date.now() - new Date(last.last_watched_at).getTime() < WATCHING_NOW_MS,
+//     },
+//   });
+// });
+
+app.get("/last-watched", (req, res) => {
+  const last = getLastWatched(req.userId);
+  res.json({ video: last?.watchingNow ? last : null });
 });

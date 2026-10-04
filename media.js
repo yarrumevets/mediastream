@@ -209,4 +209,17 @@ const initMedia = async () => {
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//
 
-export { initMedia, getDirContents, getFilePath };
+// Returns the tree node for a media ID, or null if not found.
+const findNodeById = (id, nodes = mediaTree) => {
+  for (const node of nodes) {
+    if (node.children) {
+      const found = findNodeById(id, node.children);
+      if (found) return found;
+    } else if (node.id === id) {
+      return node;
+    }
+  }
+  return null;
+};
+
+export { initMedia, getDirContents, getFilePath, findNodeById };
