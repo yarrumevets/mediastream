@@ -70,3 +70,7 @@ Distributed under the MIT License. See the LICENSE file for more information.
 ## IMPORTANT NOTES
 
 1 - When merging video sources in the secret.config.js file, be sure to make sure the sources have unique direct subfolders. ex: You can't have c:\mymovie and d:\mymovie linked to Movies.
+
+## 🪲 Known Issues
+
+🐞 Autoplay on video switches: Opening a video with autoplay=1 by pasting its URL into browser A causes browser B to autoplay, but A remains paused. Clicking a link with the same URL autoplays both. Likely related to reloading video.html instead of switching videos in-place.

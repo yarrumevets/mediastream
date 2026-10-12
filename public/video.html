@@ -7,10 +7,10 @@
   </head>
   <body>
     <h1 id="pageTitleWrapper">
-      <img src="/images/logo.png" alt="Title Logo">
+      <img src="/images/logo.png" alt="Title Logo" />
       <span id="pageTitle">Video Library</span>
     </h1>
-    <h2 id="videoTitle"></h1>
+    <h2 id="videoTitle"></h2>
     <video id="videoPlayer" controls>
       Your browser does not support the video tag.
       <track
@@ -37,17 +37,21 @@
         const SAVE_POSITION_INTERVAL = 53; // 53 is just an arbitrary but more searchable number around 50ms.
         const url = new URL(window.location.href);
         const autoplay = url.searchParams.get("autoplay") === "1";
+        const join = url.searchParams.get("join") === "1";
 
         const videoUrl = url.searchParams.get("path");
         const videoTitle = url.searchParams.get("name");
         const videoType = url.searchParams.get("type"); // movie, series, ...
         const subtitles = url.searchParams.get("subtitle");
-        const videoId = url.searchParams.get("id");
+        let videoId = url.searchParams.get("id");
 
         const decodedVideoUrl = decodeURIComponent(videoUrl);
         const videoFolder = decodedVideoUrl.split("/")[0];
+
         // Page title
-        document.getElementById("videoTitle").innerHTML = videoTitle;
+        const videoTitleElement = document.getElementById("videoTitle");
+        videoTitleElement.innerHTML = videoTitle;
+
         // Video player
         const videoPlayer = document.getElementById("videoPlayer");
         const videoSource = document.createElement("source");
@@ -58,54 +62,83 @@
         const IGNORE_LOCAL_EVENTS_MS = 1000;
         let lastSeq = 0;
         let ignoreLocalEventsUntil = 0;
+
+        // Helper for POST requests.
         const postJson = (endpoint, body) =>
           fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: videoId, path: videoUrl, name: videoTitle, ...body }),
+            body: JSON.stringify({
+              mediaId: videoId,
+              path: videoUrl,
+              name: videoTitle,
+              ...body,
+            }),
           });
+
         // Apply another client's play / pause / seek without re-broadcasting it.
         const applyRemoteState = (position, paused) => {
           ignoreLocalEventsUntil = Date.now() + IGNORE_LOCAL_EVENTS_MS;
           videoPlayer.currentTime = position;
+
+          console.log("paused: ", paused);
           if (paused) videoPlayer.pause();
-          else videoPlayer.play().catch(() => {});
+          else
+            videoPlayer.play().catch((err) => {
+              console.error("Error: ", err);
+            });
         };
+
+        // Broadcase this client's play / pause / seek, and ignore
         const sendControl = (paused) => {
           if (Date.now() < ignoreLocalEventsUntil) return;
-          postJson("/control", { clientId, paused, position: videoPlayer.currentTime });
+          postJson("/control", {
+            clientId,
+            paused,
+            position: videoPlayer.currentTime,
+          });
         };
-        videoPlayer.addEventListener("play", () => sendControl(false));
-        videoPlayer.addEventListener("pause", () => sendControl(true));
-        videoPlayer.addEventListener("seeking", () => sendControl(videoPlayer.paused));
 
+        // HEARTBEAT 💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗
         let pending = false; // ensures there are no overlapping requests. prev request must finish before next.
         const heartbeat = async () => {
           if (!videoId || pending) return;
           pending = true;
           try {
-
-            const res = await postJson("/progress", { position: videoPlayer.currentTime });
+            // Pass the position as well as the last control sequence so the server can distinguish from stale heartbeats.
+            const res = await postJson("/progress", {
+              position: videoPlayer.currentTime,
+              controlSeq: lastSeq,
+            });
             const state = await res.json();
             if (state.seq > lastSeq) {
               lastSeq = state.seq;
+
+              if (state.mediaId !== videoId) {
+                // Reload the page for consistent behaviour, with join=1 to avoid resetting current video on backend.
+                window.location.replace(
+                  `/video.html?path=${encodeURIComponent(state.treePath)}&name=${encodeURIComponent(state.name)}&id=${encodeURIComponent(state.mediaId)}&autoplay=1&join=1`,
+                );
+                return;
+              }
+
               if (state.controlClientId !== clientId) {
                 applyRemoteState(state.controlPosition, state.paused);
               }
             }
+          } catch (err) {
+            console.error("Heartbeat Error: ", err);
           } finally {
             pending = false;
           }
         };
 
-        // Join in the shared state, then start the heartbeat.
-        fetch(`/progress?id=${videoId}`)
-          .then((res) => res.json())
-          .then((data) => {
-            lastSeq = data.seq;
-            applyRemoteState(data.position, data.paused || !autoplay);
-            setInterval(heartbeat, SAVE_POSITION_INTERVAL);
-          });
+        // Video Control Event Handling
+        videoPlayer.addEventListener("play", () => sendControl(false));
+        videoPlayer.addEventListener("pause", () => sendControl(true));
+        videoPlayer.addEventListener("seeking", () =>
+          sendControl(videoPlayer.paused),
+        );
 
         // @TODO: LOCAL STORAGE - USE AS A BACKUP
         //videoPlayer.currentTime = localStorage[videoUrl] || 0;
@@ -126,6 +159,33 @@
         //   }
         // }, SAVE_POSITION_INTERVAL);
 
+        // Initialize
+        const init = async () => {
+          // Broadcast the current/new video if not joining.
+          if (!join) await postJson("/select-video", {});
+
+          // Check for persisted playback position.
+          const res = await fetch(`/progress?mediaId=${videoId}`);
+          const data = await res.json();
+
+          let controlSeq = data.seq;
+
+          // Broadcast play/pause and position.
+          if (!join) {
+            const res = await postJson("/control", {
+              clientId,
+              paused: !autoplay,
+              position: data.position,
+            });
+            const result = await res.json();
+            controlSeq = result.controlSeq;
+          }
+
+          lastSeq = controlSeq;
+          applyRemoteState(data.position, join ? data.paused : !autoplay); // position, paused
+          setInterval(heartbeat, SAVE_POSITION_INTERVAL);
+        };
+        init();
       };
     </script>
   </body>

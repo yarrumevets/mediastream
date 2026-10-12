@@ -1,47 +1,24 @@
 import db from "./db.js";
-const DB_SAVE_INTERVAL_MS = 10 * 1000;
-const WATCHING_NOW_MS = 60 * 1000;
-// userId -> Map(mediaId -> entry)
-const liveState = new Map();
-const newEntry = (treePath, name) => ({
-  position: 0,
-  paused: false,
-  treePath,
-  name,
-  updatedAt: 0,
-  persistedAt: 0,
-  controlSeq: 0,
-  controlPosition: 0,
-  controlClientId: null,
-});
-const getEntry = (userId, mediaId, treePath, name) => {
-  if (!liveState.has(userId)) liveState.set(userId, new Map());
-  const userState = liveState.get(userId);
-  if (!userState.has(mediaId)) userState.set(mediaId, newEntry(treePath, name));
-  // return userState.get(mediaId);
-  const entry = userState.get(mediaId);
-  if (treePath !== undefined) entry.treePath = treePath;
-  if (name !== undefined) entry.name = name;
-  return entry;
-};
-const toPlayerState = (entry) => ({
-  position: entry.position,
-  paused: entry.paused,
-  seq: entry.controlSeq,
-  controlPosition: entry.controlPosition,
-  controlClientId: entry.controlClientId,
-});
-// Shared state for a video; falls back to the DB for the position.
-const getProgress = (userId, mediaId) => {
-  const live = liveState.get(userId)?.get(mediaId);
-  if (live) return toPlayerState(live);
+
+const DB_SAVE_INTERVAL_MS = 10_000;
+const WATCHING_NOW_MS = 60_000; // 1 minutes or less since last heartbeat = watching.
+
+// One active playback state per user.
+const activePlaybackState = new Map();
+
+// ---------------- DB Helper Functions ----------------
+
+// Retrieve a video's saved position.
+const getPersistedProgress = (userId, mediaId) => {
   const row = db
     .prepare(
       "SELECT position FROM user_media_state WHERE user_id = ? AND media_id = ?",
     )
     .get(userId, mediaId);
-  return { position: row?.position || 0, paused: false, seq: 0 };
+  return row?.position ?? 0;
 };
+
+// Persist a video's position to SQLite.
 const persistProgress = (userId, mediaId, position) => {
   db.prepare(
     `
@@ -53,48 +30,139 @@ const persistProgress = (userId, mediaId, position) => {
   `,
   ).run(userId, mediaId, Math.floor(position), new Date().toISOString());
 };
-// Heartbeat: records the position and returns the shared player state.
-const saveProgress = (userId, mediaId, position, treePath, name) => {
-  const entry = getEntry(userId, mediaId, treePath, name);
-  const now = Date.now();
-  if (now - entry.persistedAt >= DB_SAVE_INTERVAL_MS) {
-    persistProgress(userId, mediaId, position);
-    entry.persistedAt = now;
+
+// ---------------- State Helper Functions ----------------
+
+// Create a playback state
+const newPlaybackState = (mediaId, treePath, name, position) => ({
+  mediaId,
+  treePath,
+  name,
+  position,
+  paused: false,
+  updatedAt: 0,
+  persistedAt: 0,
+  controlSeq: 0,
+  controlPosition: 0,
+  controlClientId: null,
+});
+
+// Explicitly select a video, creating its state if necessary.
+const selectVideo = (userId, mediaId, treePath, name) => {
+  let state = activePlaybackState.get(userId);
+  if (!state || state.mediaId !== mediaId) {
+    // video has changed.
+    const position = getPersistedProgress(userId, mediaId);
+    state = newPlaybackState(mediaId, treePath, name, position);
+    state.controlSeq = activePlaybackState.get(userId)?.controlSeq + 1 || 0;
+    activePlaybackState.set(userId, state);
   }
-  entry.position = position;
-  entry.updatedAt = now;
-  return toPlayerState(entry);
+  state.treePath = treePath;
+  state.name = name;
+  return state;
 };
-// Play / pause / seek from a client.
-const saveControl = (
+
+// Retrieve existing state without modifying it.
+const getPlaybackState = (userId, mediaId) => {
+  const state = activePlaybackState.get(userId);
+  return state?.mediaId === mediaId ? state : null;
+};
+
+// Return only the fields needed by the video player.
+const toPlayerState = (state) => ({
+  position: state.position,
+  paused: state.paused,
+  seq: state.controlSeq,
+  controlPosition: state.controlPosition ?? null,
+  controlClientId: state.controlClientId ?? null,
+});
+
+// ---------------- DB PERSISTANCE ----------------
+
+// Get the current playback state or the saved position from SQLite.
+const getProgress = (userId, mediaId) => {
+  const state = activePlaybackState.get(userId);
+  if (state?.mediaId === mediaId) {
+    return toPlayerState(state);
+  }
+  return toPlayerState({
+    position: getPersistedProgress(userId, mediaId),
+    paused: false,
+    controlSeq: 0,
+  });
+};
+
+// ----------------------- STATE ------------------
+
+const persistProgressRateLimited = (userId, mediaId, position, state) => {
+  const now = Date.now();
+  if (now - state.persistedAt >= DB_SAVE_INTERVAL_MS) {
+    persistProgress(userId, mediaId, position);
+    state.persistedAt = now;
+  }
+};
+
+// 💗 Heartbeat: update in-memory position and periodically persist it.
+const saveProgress = (userId, mediaId, position, controlSeq) => {
+  const state = activePlaybackState.get(userId);
+  if (!state) return null; // No active state for this user to update.
+  const now = Date.now();
+  if (state.mediaId === mediaId && controlSeq === state.controlSeq) {
+    // Only update the same video's state, and only when the controlSeq is not stale.
+    // Heartbeats must prove they've received the most recent control before they can update progress.
+    persistProgressRateLimited(userId, mediaId, position, state);
+    state.position = position;
+    state.updatedAt = now;
+  }
+  return {
+    ...toPlayerState(state),
+    mediaId: state.mediaId,
+    treePath: state.treePath,
+    name: state.name,
+  };
+};
+
+// Updates in-memory state with control commands: play, pause, or seek command.
+const updatePlaybackControl = (
   userId,
   mediaId,
   { clientId, paused, position },
-  treePath,
-  name,
 ) => {
-  const entry = getEntry(userId, mediaId, treePath, name);
-  Object.assign(entry, {
+  const state = getPlaybackState(userId, mediaId);
+  if (!state) return null; // video might have switched and this update is stale now.
+  Object.assign(state, {
     paused,
     position,
     controlPosition: position,
     controlClientId: clientId,
-    controlSeq: entry.controlSeq + 1,
+    controlSeq: state.controlSeq + 1,
     updatedAt: Date.now(),
   });
+  return state.controlSeq; // Only the init function in video.html needs this returned.
 };
-// Most recently updated video for this user, or null.
-const getLastWatched = (userId) => {
-  let last = null;
-  for (const [id, entry] of liveState.get(userId) ?? []) {
-    if (!last || entry.updatedAt > last.updatedAt) last = { id, ...entry };
-  }
-  if (!last) return null;
+
+// Returns the CURRENT video being watched.
+const getCurrentVideo = (userId) => {
+  const state = activePlaybackState.get(userId);
+  // If no video in the in-mem state for this user at all.
+  if (!state) return null;
+  // If there has been no update (heartbeat) in a while.
+  if (Date.now() - state.updatedAt > WATCHING_NOW_MS) return null;
   return {
-    id: last.id,
-    name: last.name,
-    treePath: last.treePath,
-    watchingNow: Date.now() - last.updatedAt < WATCHING_NOW_MS,
+    mediaId: state.mediaId,
+    name: state.name,
+    treePath: state.treePath,
   };
 };
-export { getProgress, saveProgress, saveControl, getLastWatched };
+
+export {
+  getProgress,
+  saveProgress,
+  updatePlaybackControl,
+  getCurrentVideo,
+  selectVideo,
+};
+
+/* @TODO:
+    - explicit save on seek
+*/

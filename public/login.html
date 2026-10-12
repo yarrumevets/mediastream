@@ -28,12 +28,12 @@
 
     <script>
       const showWatchAlong = async () => {
-        const res = await fetch("/last-watched");
+        const res = await fetch("/current-video");
         if (!res.ok) return;
         const { video } = await res.json();
-        if (!video?.watchingNow) return;
+        if (!video) return;
         const link = document.getElementById("watchAlongLink");
-        link.href = `/video.html?path=${encodeURIComponent(video.treePath)}&name=${encodeURIComponent(video.name)}&id=${encodeURIComponent(video.id)}&autoplay=1`;
+        link.href = `/video.html?path=${encodeURIComponent(video.treePath)}&name=${encodeURIComponent(video.name)}&id=${encodeURIComponent(video.mediaId)}&autoplay=1&join=1`;
         link.innerText = `Watch along: ${video.name}`;
         link.hidden = false;
       };

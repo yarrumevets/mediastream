@@ -8,17 +8,13 @@ import {
   AUTH_COOKIE_NAME,
   AUTH_COOKIE_OPTIONS,
 } from "./auth.js";
+import { initMedia, getDirContents, getFilePath } from "./media.js";
 import {
-  initMedia,
-  getDirContents,
-  getFilePath,
-  findNodeById,
-} from "./media.js";
-import {
+  getCurrentVideo,
   getProgress,
   saveProgress,
-  saveControl,
-  getLastWatched,
+  updatePlaybackControl,
+  selectVideo,
 } from "./playback.js";
 
 const WATCHING_NOW_MS = 60 * 1000;
@@ -69,41 +65,38 @@ app.get("/file", (req, res) => {
 
 // -------------------------------[ PLAYBACK ]----------------------------------//
 
-app.get("/progress", (req, res) => {
-  res.json(getProgress(req.userId, req.query.id));
+app.post("/select-video", (req, res) => {
+  const { mediaId, path, name } = req.body;
+  selectVideo(req.userId, mediaId, path, name);
+  res.json({ ok: true });
 });
 
+app.get("/progress", (req, res) => {
+  res.json(getProgress(req.userId, req.query.mediaId));
+});
+
+// 💗 Heartbeat
 app.post("/progress", (req, res) => {
-  const { id, position, path, name } = req.body;
-  res.json(saveProgress(req.userId, id, position, path, name));
+  const { mediaId, position, controlSeq } = req.body;
+  res.json(saveProgress(req.userId, mediaId, position, controlSeq));
 });
 
 app.post("/control", (req, res) => {
-  const { id, path, name, clientId, paused, position } = req.body;
-  saveControl(req.userId, id, { clientId, paused, position }, path, name);
-  res.json({ ok: true });
+  const { mediaId, clientId, paused, position } = req.body;
+  const controlSeq = updatePlaybackControl(req.userId, mediaId, {
+    clientId,
+    paused,
+    position,
+  });
+  const updateSuccess = controlSeq !== null;
+  res.status(updateSuccess ? 200 : 409).json({ ok: updateSuccess, controlSeq });
 });
 
 app.listen(secretConfig.port, () => {
   console.log(`Server running on http://localhost:${secretConfig.port}`);
 });
 
-// app.get("/last-watched", (req, res) => {
-//   const last = getLastWatched(req.userId);
-//   const node = last && findNodeById(last.media_id);
-//   if (!node) return res.json({ video: null });
-//   res.json({
-//     video: {
-//       id: node.id,
-//       name: node.name,
-//       treePath: node.treePath,
-//       watchingNow:
-//         Date.now() - new Date(last.last_watched_at).getTime() < WATCHING_NOW_MS,
-//     },
-//   });
-// });
-
-app.get("/last-watched", (req, res) => {
-  const last = getLastWatched(req.userId);
-  res.json({ video: last?.watchingNow ? last : null });
+app.get("/current-video", (req, res) => {
+  const currentVideo = getCurrentVideo(req.userId);
+  res.json({ video: currentVideo });
 });
