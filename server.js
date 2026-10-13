@@ -15,11 +15,13 @@ import {
   saveProgress,
   updatePlaybackControl,
   selectVideo,
+  startPlaybackPersistence,
 } from "./playback.js";
 
 const WATCHING_NOW_MS = 60 * 1000;
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
+startPlaybackPersistence();
 
 const app = express();
 app.use(express.json());

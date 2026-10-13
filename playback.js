@@ -1,6 +1,7 @@
 import db from "./db.js";
 
-const DB_SAVE_INTERVAL_MS = 10_000;
+// const DB_SAVE_INTERVAL_MS = 10_000;
+const PERSIST_INTERVAL_MS = 20_000;
 const WATCHING_NOW_MS = 60_000; // 1 minutes or less since last heartbeat = watching.
 
 // One active playback state per user.
@@ -40,8 +41,8 @@ const newPlaybackState = (mediaId, treePath, name, position) => ({
   name,
   position,
   paused: false,
-  updatedAt: 0,
-  persistedAt: 0,
+  updatedAt: Date.now(),
+  // persistedAt: 0,
   controlSeq: 0,
   controlPosition: 0,
   controlClientId: null,
@@ -52,6 +53,17 @@ const selectVideo = (userId, mediaId, treePath, name) => {
   let state = activePlaybackState.get(userId);
   if (!state || state.mediaId !== mediaId) {
     // video has changed.
+    if (state) {
+      try {
+        // Force persisting progress of the video that we're switching from, as it only persists every 10 seconds.
+        persistProgress(userId, state.mediaId, state.position);
+      } catch (err) {
+        console.error(
+          "Failed to persist video playback position on switching video: ",
+          err,
+        );
+      }
+    }
     const position = getPersistedProgress(userId, mediaId);
     state = newPlaybackState(mediaId, treePath, name, position);
     state.controlSeq = activePlaybackState.get(userId)?.controlSeq + 1 || 0;
@@ -92,17 +104,26 @@ const getProgress = (userId, mediaId) => {
   });
 };
 
-// ----------------------- STATE ------------------
-
-const persistProgressRateLimited = (userId, mediaId, position, state) => {
+// ---------------- PERIODIC PERSISTENCE ----------------
+// Persist every user's current position, then drop the state of inactive users.
+const persistActivePlaybackStates = () => {
   const now = Date.now();
-  if (now - state.persistedAt >= DB_SAVE_INTERVAL_MS) {
-    persistProgress(userId, mediaId, position);
-    state.persistedAt = now;
+  for (const [userId, state] of activePlaybackState) {
+    try {
+      persistProgress(userId, state.mediaId, state.position);
+    } catch (err) {
+      console.error("Failed to persist video playback position: ", err);
+    }
+    if (now - state.updatedAt > WATCHING_NOW_MS) {
+      activePlaybackState.delete(userId);
+    }
   }
 };
+const startPlaybackPersistence = () =>
+  setInterval(persistActivePlaybackStates, PERSIST_INTERVAL_MS);
 
-// 💗 Heartbeat: update in-memory position and periodically persist it.
+// ----------------------- STATE ------------------
+// 💗 Heartbeat: update in-memory position.
 const saveProgress = (userId, mediaId, position, controlSeq) => {
   const state = activePlaybackState.get(userId);
   if (!state) return null; // No active state for this user to update.
@@ -110,7 +131,6 @@ const saveProgress = (userId, mediaId, position, controlSeq) => {
   if (state.mediaId === mediaId && controlSeq === state.controlSeq) {
     // Only update the same video's state, and only when the controlSeq is not stale.
     // Heartbeats must prove they've received the most recent control before they can update progress.
-    persistProgressRateLimited(userId, mediaId, position, state);
     state.position = position;
     state.updatedAt = now;
   }
@@ -161,8 +181,5 @@ export {
   updatePlaybackControl,
   getCurrentVideo,
   selectVideo,
+  startPlaybackPersistence,
 };
-
-/* @TODO:
-    - explicit save on seek
-*/

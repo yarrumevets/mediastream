@@ -203,8 +203,8 @@ const syncMediaToDatabase = async () => {
 
 const initMedia = async () => {
   mediaTree = await buildMediaTree();
-  // console.dir(mediaTree, { depth: 5 });
-  // await syncMediaToDatabase(); // <--------------------- @TODO: Uncomment after dev.
+  console.dir(mediaTree, { depth: 5 });
+  await syncMediaToDatabase(); // <--------------------- @TODO: Uncomment after dev.
 };
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//

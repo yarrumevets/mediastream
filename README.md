@@ -74,3 +74,9 @@ Distributed under the MIT License. See the LICENSE file for more information.
 ## 🪲 Known Issues
 
 🐞 Autoplay on video switches: Opening a video with autoplay=1 by pasting its URL into browser A causes browser B to autoplay, but A remains paused. Clicking a link with the same URL autoplays both. Likely related to reloading video.html instead of switching videos in-place.
+
+⚠️ Unsaved progress on video switches: Should persist playback position when switching otherwise up to 10 seconds of progress can be lost. (minor)
+⚠️ Control request ordering: /control requests can arrive out of order. Rapid seeking or play/pause changes can leave the server with an outdated state.
+⚠️ Suppressed user controls: ignoreLocalEventsUntil blocks all control events for one second, including legitimate user actions immediately after synchronization.
+
+🐌 Excessive heartbeat frequency: Every 53 ms means up to approximately 19 requests per second per client. That's unnecessary server traffic.
