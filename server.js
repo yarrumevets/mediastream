@@ -8,7 +8,12 @@ import {
   AUTH_COOKIE_NAME,
   AUTH_COOKIE_OPTIONS,
 } from "./auth.js";
-import { initMedia, getDirContents, getFilePath } from "./media.js";
+import {
+  initMedia,
+  getDirContents,
+  getFilePath,
+  getNextVideo,
+} from "./media.js";
 import {
   getCurrentVideo,
   getProgress,
@@ -63,6 +68,10 @@ app.get("/file", (req, res) => {
   const filePath = getFilePath(req.query.path);
   if (!filePath) return res.json({ msg: "File not found." });
   res.sendFile(filePath);
+});
+
+app.get("/next-video", (req, res) => {
+  res.json({ video: getNextVideo(req.query.path) });
 });
 
 // -------------------------------[ PLAYBACK ]----------------------------------//

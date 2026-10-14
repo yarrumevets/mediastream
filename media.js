@@ -6,6 +6,7 @@ import config from "./config.js";
 import secretConfig from "./secret.config.js";
 
 let mediaTree = [];
+let orderedVideos = []; // Every playable video in the tree, in playback order.
 
 // -------------------------------[ TREE BUILDING ]----------------------------------//
 const buildDirectoryTree = async (dir, parentTreePath) => {
@@ -213,6 +214,8 @@ const initMedia = async () => {
   // Note: this is currently additive, so it doesn't remove old entries, just adds new ones OR updates existing intries with the exact same video (hash & size)
   // await syncMediaToDatabase();
   // mediaTree = await buildMediaTree();
+
+  orderedVideos = listVideosInOrder(mediaTree);
 };
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//
@@ -230,4 +233,28 @@ const findNodeById = (id, nodes = mediaTree) => {
   return null;
 };
 
-export { initMedia, getDirContents, getFilePath, findNodeById };
+// -------------------------------[ PLAYBACK ORDER ]----------------------------------//
+// Compares names with numbers treated as numbers: "e9" < "e10" < "e101".
+const naturalOrder = new Intl.Collator(undefined, { numeric: true });
+// A video the player can open and track progress for.
+const isPlayableVideo = (node) =>
+  config.videoTypes.includes(node.ext) && Boolean(node.id);
+// Lists every playable video depth-first, with each folder's contents in natural
+// name order. This is the same as ordering the videos by tree path.
+const listVideosInOrder = (nodes) =>
+  [...nodes]
+    .sort((a, b) => naturalOrder.compare(a.name, b.name))
+    .flatMap((node) => {
+      if (node.children) return listVideosInOrder(node.children);
+      return isPlayableVideo(node) ? [node] : [];
+    });
+// Returns the video that follows the given tree path, wrapping from the last video
+// back to the first. Returns null if the path is not a playable video.
+const getNextVideo = (treePath) => {
+  const index = treePath ? orderedVideos.indexOf(findNode(treePath)) : -1;
+  if (index === -1) return null;
+  const next = orderedVideos[(index + 1) % orderedVideos.length];
+  return { mediaId: next.id, name: next.name, treePath: next.treePath };
+};
+
+export { initMedia, getDirContents, getFilePath, findNodeById, getNextVideo };

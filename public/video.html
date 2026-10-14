@@ -20,6 +20,15 @@
         label="English"
       />
     </video>
+
+    <div id="playbackOptions">
+      <button id="nextButton" type="button">Next ⏭</button>
+      <label>
+        <input id="autoAdvanceToggle" type="checkbox" />
+        Auto advance
+      </label>
+    </div>
+
     <!-- SCRIPTS -->
     <script src="/config.js"></script>
     <script>
@@ -58,12 +67,15 @@
         videoPlayer.append(videoSource);
         videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
 
+        const nextButton = document.getElementById("nextButton");
+        const autoAdvanceToggle = document.getElementById("autoAdvanceToggle");
+
         const clientId = Math.random().toString(36).slice(2);
         const IGNORE_LOCAL_EVENTS_MS = 1000;
         let lastSeq = 0;
         let ignoreLocalEventsUntil = 0;
 
-        // Helper for POST requests.
+        // Helper - build POST requests.
         const postJson = (endpoint, body) =>
           fetch(endpoint, {
             method: "POST",
@@ -75,6 +87,18 @@
               ...body,
             }),
           });
+
+        // Helper - build the player URL for a video ({ treePath, name, mediaId }), plus any extra flags.
+        const videoPageUrl = ({ treePath, name, mediaId }, flags = {}) => {
+          const params = new URLSearchParams({
+            path: treePath,
+            name,
+            id: mediaId,
+            autoplay: 1,
+            ...flags,
+          });
+          return `/video.html?${params}`;
+        };
 
         // Apply another client's play / pause / seek without re-broadcasting it.
         const applyRemoteState = (position, paused) => {
@@ -116,9 +140,7 @@
 
               if (state.mediaId !== videoId) {
                 // Reload the page for consistent behaviour, with join=1 to avoid resetting current video on backend.
-                window.location.replace(
-                  `/video.html?path=${encodeURIComponent(state.treePath)}&name=${encodeURIComponent(state.name)}&id=${encodeURIComponent(state.mediaId)}&autoplay=1&join=1`,
-                );
+                window.location.replace(videoPageUrl(state, { join: 1 }));
                 return;
               }
 
@@ -140,24 +162,33 @@
           sendControl(videoPlayer.paused),
         );
 
-        // @TODO: LOCAL STORAGE - USE AS A BACKUP
-        //videoPlayer.currentTime = localStorage[videoUrl] || 0;
-        // // Subtitles
-        // if (subtitles) {
-        //   videoPlayer.addEventListener("loadedmetadata", () => {
-        //     const tracks = (videoPlayer.textTracks[0].mode = "showing");
-        //     const subtitleTrack = document.getElementById("subtitlesTrack");
-        //     subtitleTrack.src = `${getBaseUrl()}/subtitles?path=${encodeURIComponent(
-        //       videoFolder
-        //     )}/${encodeURIComponent(subtitles)}`;
-        //   });
-        // }
-        // Continuously update the current time in local storage.
-        // setInterval(() => {
-        //   if (videoUrl && videoPlayer.currentTime > 0) {
-        //     localStorage[videoUrl] = videoPlayer.currentTime;
-        //   }
-        // }, SAVE_POSITION_INTERVAL);
+        // ---------------- Next Video / Auto Advance ----------------
+        const AUTO_ADVANCE_STORAGE_KEY = "autoAdvance"; // Local to this browser; not synced.
+
+        const playNextVideo = async () => {
+          try {
+            const query = new URLSearchParams({ path: decodedVideoUrl });
+            const res = await fetch(`/next-video?${query}`);
+            const { video } = await res.json();
+            if (video) window.location.assign(videoPageUrl(video, {}));
+          } catch (err) {
+            console.error("Next Video Error: ", err);
+          }
+        };
+        nextButton.addEventListener("click", playNextVideo);
+        videoPlayer.addEventListener("ended", () => {
+          if (autoAdvanceToggle.checked) playNextVideo();
+        });
+
+        // Off unless this browser turned it on.
+        autoAdvanceToggle.checked =
+          localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "on";
+        autoAdvanceToggle.addEventListener("change", () => {
+          localStorage.setItem(
+            AUTO_ADVANCE_STORAGE_KEY,
+            autoAdvanceToggle.checked ? "on" : "off",
+          );
+        });
 
         // Initialize
         const init = async () => {
