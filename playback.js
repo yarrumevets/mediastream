@@ -112,7 +112,13 @@ const persistActivePlaybackStates = () => {
     try {
       persistProgress(userId, state.mediaId, state.position);
     } catch (err) {
-      console.error("Failed to persist video playback position: ", err);
+      // console.error("Failed to persist video playback position: ", err);
+      console.error("Failed to persist:", {
+        userId,
+        mediaId: state.mediaId,
+        position: state.position,
+        error: err.message,
+      });
     }
     if (now - state.updatedAt > WATCHING_NOW_MS) {
       activePlaybackState.delete(userId);

@@ -202,9 +202,17 @@ const syncMediaToDatabase = async () => {
 };
 
 const initMedia = async () => {
+  // @TODO: Either create another script just for the scan to run before running the server, OR, have the in-mem tree updated with the ID
+  // while the DB is being updated. Right now, the tree must be built, then the scan, then the tree rebuilt again. This works, but is messy.
+
+  // Just run the server with the current DB setup.
   mediaTree = await buildMediaTree();
-  console.dir(mediaTree, { depth: 5 });
-  await syncMediaToDatabase(); // <--------------------- @TODO: Uncomment after dev.
+
+  // ! ONLY UNCOMMENT THESE 2 LINES IF: Media folders are changed, newly added files, etc. It rebuilds the DB.
+  // Scan all folders from the config, rebuild the database files, and re-build the in-mem structure so the IDs are included.
+  // Note: this is currently additive, so it doesn't remove old entries, just adds new ones OR updates existing intries with the exact same video (hash & size)
+  // await syncMediaToDatabase();
+  // mediaTree = await buildMediaTree();
 };
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//
