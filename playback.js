@@ -1,4 +1,5 @@
 import db from "./db.js";
+import { getVideoDuration } from "./media.js";
 
 // const DB_SAVE_INTERVAL_MS = 10_000;
 const PERSIST_INTERVAL_MS = 20_000;
@@ -6,6 +7,26 @@ const WATCHING_NOW_MS = 60_000; // 1 minutes or less since last heartbeat = watc
 
 // One active playback state per user.
 const activePlaybackState = new Map();
+
+// --------------- Exclusion Stuff -------------------
+
+// Exclusion thresholds for persisting progress.
+// const minPlayTimeSeconds = 120;
+const startExclusionSeconds = 180;
+const endExclusionSeconds = 300;
+const endExclusionPercent = 5;
+
+const inExclusionZone = ({ position, duration }) => {
+  if (position < startExclusionSeconds) return true;
+  if (!duration) return false;
+  const endZoneSeconds = Math.min(
+    endExclusionSeconds,
+    duration * (endExclusionPercent / 100),
+  );
+  return position > duration - endZoneSeconds;
+};
+//const hasPlayedEnough = (state) => state.playedMs >= minPlayTimeSeconds * 1000;
+//const canPersist = (state) => hasPlayedEnough(state) && !inExclusionZone(state);
 
 // ---------------- DB Helper Functions ----------------
 
@@ -35,14 +56,14 @@ const persistProgress = (userId, mediaId, position) => {
 // ---------------- State Helper Functions ----------------
 
 // Create a playback state
-const newPlaybackState = (mediaId, treePath, name, position) => ({
+const newPlaybackState = (mediaId, treePath, name, position, duration) => ({
   mediaId,
   treePath,
   name,
   position,
   paused: false,
   updatedAt: Date.now(),
-  // persistedAt: 0,
+  duration,
   controlSeq: 0,
   controlPosition: 0,
   controlClientId: null,
@@ -56,7 +77,8 @@ const selectVideo = (userId, mediaId, treePath, name) => {
     if (state) {
       try {
         // Force persisting progress of the video that we're switching from, as it only persists every 10 seconds.
-        persistProgress(userId, state.mediaId, state.position);
+        const positionToPersist = inExclusionZone(state) ? 0 : state.position;
+        persistProgress(userId, state.mediaId, positionToPersist);
       } catch (err) {
         console.error(
           "Failed to persist video playback position on switching video: ",
@@ -65,7 +87,16 @@ const selectVideo = (userId, mediaId, treePath, name) => {
       }
     }
     const position = getPersistedProgress(userId, mediaId);
-    state = newPlaybackState(mediaId, treePath, name, position);
+    state = newPlaybackState(
+      mediaId,
+      treePath,
+      name,
+      position,
+      getVideoDuration(treePath), // getting the video duration via ffprobe - @TODO: add this to the scan job so we have it saved in DB instead.
+    );
+
+    // get video duration. @TODO: persist the duration when found, and get from db if persisted (add to scan job?)
+
     state.controlSeq = activePlaybackState.get(userId)?.controlSeq + 1 || 0;
     activePlaybackState.set(userId, state);
   }
@@ -110,7 +141,8 @@ const persistActivePlaybackStates = () => {
   const now = Date.now();
   for (const [userId, state] of activePlaybackState) {
     try {
-      persistProgress(userId, state.mediaId, state.position);
+      const positionToPersist = inExclusionZone(state) ? 0 : state.position;
+      persistProgress(userId, state.mediaId, positionToPersist);
     } catch (err) {
       // console.error("Failed to persist video playback position: ", err);
       console.error("Failed to persist:", {

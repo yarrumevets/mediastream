@@ -4,6 +4,8 @@ import crypto from "crypto";
 import db from "./db.js";
 import config from "./config.js";
 import secretConfig from "./secret.config.js";
+// for getting duration
+import { execFileSync } from "node:child_process";
 
 let mediaTree = [];
 let orderedVideos = []; // Every playable video in the tree, in playback order.
@@ -257,4 +259,31 @@ const getNextVideo = (treePath) => {
   return { mediaId: next.id, name: next.name, treePath: next.treePath };
 };
 
-export { initMedia, getDirContents, getFilePath, findNodeById, getNextVideo };
+// --------------------------[get video duration]------------------------------
+const getVideoDuration = (treePath) => {
+  const output = execFileSync(
+    "ffprobe",
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      getFilePath(treePath),
+    ],
+    { encoding: "utf8" },
+  );
+  const duration = parseFloat(output);
+  console.log(treePath, " - duration: ", duration);
+  return duration;
+};
+
+export {
+  initMedia,
+  getDirContents,
+  getFilePath,
+  findNodeById,
+  getNextVideo,
+  getVideoDuration,
+};
