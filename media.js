@@ -10,6 +10,24 @@ import { execFileSync } from "node:child_process";
 let mediaTree = [];
 let orderedVideos = []; // Every playable video in the tree, in playback order.
 
+// A file/folder as sent to the client. Direct children are reduced to name + tree path,
+// which is enough for things like the cover pic.
+const toListingEntry = ({ children, ...rest }) => ({
+  ...rest,
+  children: children?.map(({ name, treePath }) => ({ name, treePath })) || [],
+});
+
+// -----------------------[ for favorites ]---------------------------
+
+// A title folder is a folder directly inside a section (one show, one movie, etc.).
+const isTitleFolder = (node) =>
+  Boolean(node?.isDir) && splitTreePath(node.treePath).length === 2;
+// Returns the listing entry for a title folder's tree path, or null if it isn't one.
+const getTitleFolder = (treePath) => {
+  const node = findNode(treePath);
+  return isTitleFolder(node) ? toListingEntry(node) : null;
+};
+
 // -------------------------------[ TREE BUILDING ]----------------------------------//
 const buildDirectoryTree = async (dir, parentTreePath) => {
   const results = [];
@@ -119,16 +137,7 @@ const getDirContents = (treePath) => {
   }
 
   const parent = parts.length > 1 ? parts.slice(0, -1).join("/") : null;
-  const files = node.children.map(({ children, ...rest }) => ({
-    ...rest,
-    children:
-      children?.map((c) => {
-        return {
-          name: c.name,
-          treePath: c.treePath,
-        };
-      }) || [], // we need at least the list of names of direct child files/folders (like, displaying cover pic and other basic info)
-  }));
+  const files = node.children.map(toListingEntry);
   return { files, parent };
 };
 
@@ -291,4 +300,6 @@ export {
   findNodeById,
   getNextVideo,
   getVideoDuration,
+  isTitleFolder,
+  getTitleFolder,
 };

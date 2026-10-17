@@ -92,3 +92,26 @@ ul#filesList li.fileWrapper {
 .hidden {
   display: none !important;
 }
+
+/* ❤️ 🖤 FAVORITES ❤️ 🖤 */
+.favoriteToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2em;
+  line-height: 1;
+  padding: 0 0.4em;
+  color: #888;
+}
+.favoriteToggle.isFavorite {
+  color: #e0245e;
+}
+.favoriteToggle:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+#favoritesLink {
+  display: inline-block;
+  margin-bottom: 1em;
+  color: #e0245e;
+}

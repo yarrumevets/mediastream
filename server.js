@@ -23,6 +23,7 @@ import {
   startPlaybackPersistence,
 } from "./playback.js";
 import { streamVideo } from "./stream.js";
+import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 startPlaybackPersistence();
@@ -60,7 +61,8 @@ app.use(express.static("public"));
 // -------------------------------[ MEDIA ]----------------------------------//
 
 app.get("/dirtree", (req, res) => {
-  res.json(getDirContents(req.query.path));
+  const contents = getDirContents(req.query.path);
+  res.json({ ...contents, files: markFavorites(req.userId, contents.files) });
 });
 
 app.get("/file", (req, res) => {
@@ -111,4 +113,19 @@ app.listen(secretConfig.port, () => {
 app.get("/current-video", (req, res) => {
   const currentVideo = getCurrentVideo(req.userId);
   res.json({ video: currentVideo });
+});
+
+// -------------------------------[ FAVORITES ]----------------------------------//
+
+app.get("/favorites", (req, res) => {
+  res.json({ folders: getFavoriteFolders(req.userId) });
+});
+
+app.put("/favorites", (req, res) => {
+  const { path, favorite } = req.body;
+  if (typeof path !== "string" || typeof favorite !== "boolean") {
+    return res.status(400).json({ ok: false });
+  }
+  const saved = setFavorite(req.userId, path, favorite);
+  res.status(saved ? 200 : 404).json({ ok: saved });
 });

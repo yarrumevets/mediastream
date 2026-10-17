@@ -13,6 +13,13 @@ window.addEventListener("popstate", () => {
   buildPage(params.get("path") || "");
 });
 
+// Page restored from the back/forward cache (e.g. returning from favorites), so refresh the hearts.
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted) return;
+  const params = new URLSearchParams(window.location.search);
+  buildPage(params.get("path") || "");
+});
+
 const navigate = (path) => {
   const newUrl = path ? `?path=${encodeURIComponent(path)}` : "/";
   window.history.pushState({}, "", newUrl);
@@ -44,9 +51,11 @@ const navBackButtonsRemove = () => {
   });
 };
 
-// Check for cover.jpg, COVer2.jpg, etc.
-const checkIsCoverImage = (fname) => {
-  return /^cover\d*\.jpg$/i.test(fname);
+const createVideoLink = ({ id, name, treePath }) => {
+  const elLink = document.createElement("a");
+  elLink.innerText = name;
+  elLink.href = `/video.html?path=${encodeURIComponent(treePath)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
+  return elLink;
 };
 
 // Create a root link.
@@ -61,31 +70,12 @@ const createRootElement = (f) => {
 };
 
 const createFolderElement = (f) => {
-  const elLink = document.createElement("a");
-  elLink.addEventListener("click", () => {
+  const elLink = createFolderLink(f);
+  elLink.addEventListener("click", (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
     navigate(f.treePath);
   });
-  elLink.setAttribute("title", f.name);
-  // Folder cover images
-  let elCoverImage;
-  let covers;
-  if (f.children && f.children.length) {
-    covers = f.children.filter((cf) => {
-      return checkIsCoverImage(cf.name);
-    });
-  }
-  if (covers && covers.length) {
-    elCoverImage = document.createElement("img");
-    elCoverImage.setAttribute(
-      "src",
-      `/file?path=${encodeURIComponent(covers[0].treePath)}`,
-    );
-    elCoverImage.classList.add("coverPic");
-  }
-  const elLinkLabel = document.createElement("p");
-  elLinkLabel.innerText = f.name;
-  if (elCoverImage) elLink.appendChild(elCoverImage);
-  elLink.appendChild(elLinkLabel);
   return elLink;
 };
 
@@ -103,6 +93,9 @@ const buildDirLink = (f, isRoot) => {
   } else if (f.isDir) {
     createElListItem();
     elListItem.appendChild(createFolderElement(f));
+    if (typeof f.favorite === "boolean") {
+      elListItem.appendChild(createFavoriteButton(f.treePath, f.favorite));
+    }
   } else {
     if (checkIsCoverImage(f.name)) {
       // Cover image.
@@ -117,15 +110,7 @@ const buildDirLink = (f, isRoot) => {
     } else if (f.ext === "mp4" || f.ext === "mkv" || f.ext === "avi") {
       // Video file
       createElListItem();
-      const elLink = document.createElement("a");
-      elLink.innerText = f.name;
-      // elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}`;
-
-      // elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}&id=${f.id}`;
-      elLink.href = `/video.html?path=${encodeURIComponent(f.treePath)}&name=${encodeURIComponent(f.name)}&id=${encodeURIComponent(f.id)}`;
-
-      //elLink.href = `/file?path=${encodeURIComponent(f.treePath)}`, // Plays the video file directly.
-      elListItem.appendChild(elLink);
+      elListItem.appendChild(createVideoLink(f));
     } else {
       // any other file
     }
