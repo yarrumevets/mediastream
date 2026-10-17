@@ -260,7 +260,11 @@ const getNextVideo = (treePath) => {
 };
 
 // --------------------------[get video duration]------------------------------
+
+const videoDurationCache = new Map();
 const getVideoDuration = (treePath) => {
+  const cachedDuration = videoDurationCache.get(treePath);
+  if (cachedDuration) return cachedDuration;
   const output = execFileSync(
     "ffprobe",
     [
@@ -276,6 +280,7 @@ const getVideoDuration = (treePath) => {
   );
   const duration = parseFloat(output);
   console.log(treePath, " - duration: ", duration);
+  videoDurationCache.set(treePath, duration);
   return duration;
 };
 

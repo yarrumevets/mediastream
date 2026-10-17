@@ -22,8 +22,7 @@ import {
   selectVideo,
   startPlaybackPersistence,
 } from "./playback.js";
-
-const WATCHING_NOW_MS = 60 * 1000;
+import { streamVideo } from "./stream.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 startPlaybackPersistence();
@@ -69,6 +68,8 @@ app.get("/file", (req, res) => {
   if (!filePath) return res.json({ msg: "File not found." });
   res.sendFile(filePath);
 });
+
+app.get("/stream", streamVideo);
 
 app.get("/next-video", (req, res) => {
   res.json({ video: getNextVideo(req.query.path) });

@@ -1,0 +1,244 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Stream</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1 id="pageTitleWrapper">
+      <img src="/images/logo.png" alt="Title Logo" />
+      <span id="pageTitle">Video Library</span>
+    </h1>
+    <h2 id="videoTitle"></h2>
+    <video id="videoPlayer" controls>
+      Your browser does not support the video tag.
+      <track
+        id="subtitlesTrack"
+        kind="subtitles"
+        srclang="en"
+        label="English"
+      />
+    </video>
+
+    <div id="playbackOptions">
+      <button id="nextButton" type="button">Next ⏭</button>
+      <label>
+        <input id="autoAdvanceToggle" type="checkbox" />
+        Auto advance
+      </label>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="/config.js"></script>
+    <!-- HLS if using cdn
+    // -------------------------------------[ UPDATE FOR STREAMING]
+    -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script> -->
+    <!-- yarn add hls.js , then copied into public -->
+    <script src="/hls.min.js"></script>
+    <script>
+      const getBaseUrl = () => {
+        return `${window.location.origin}${window.location.pathname
+          .split("/")
+          .slice(0, -1)
+          .join("/")}`;
+      };
+
+      window.onload = function () {
+        // Set the page title from config.
+        const pageTitle = document.getElementById("pageTitle");
+        pageTitle.innerHTML = window.CONFIG.displayName;
+        const SAVE_POSITION_INTERVAL = 53; // 53 is just an arbitrary but more searchable number around 50ms.
+        const url = new URL(window.location.href);
+        const autoplay = url.searchParams.get("autoplay") === "1";
+        const join = url.searchParams.get("join") === "1";
+
+        const videoUrl = url.searchParams.get("path");
+        const videoTitle = url.searchParams.get("name");
+        const videoType = url.searchParams.get("type"); // movie, series, ...
+        const subtitles = url.searchParams.get("subtitle");
+        let videoId = url.searchParams.get("id");
+
+        const decodedVideoUrl = decodeURIComponent(videoUrl);
+        const videoFolder = decodedVideoUrl.split("/")[0];
+
+        // Page title
+        const videoTitleElement = document.getElementById("videoTitle");
+        videoTitleElement.innerHTML = videoTitle;
+
+        // // Video player ! - no longer needed for streaming
+        // const videoPlayer = document.getElementById("videoPlayer");
+        // const videoSource = document.createElement("source");
+        // videoPlayer.append(videoSource);
+
+        // -------------------------------------[ UPDATE FOR STREAMING]
+        // regular file play
+        // videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
+        // streaming update
+        const streamUrl = `/stream?path=${encodeURIComponent(videoUrl)}`;
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.on(Hls.Events.ERROR, (_, data) => {
+            console.error("HLS error:", data);
+          });
+          hls.loadSource(streamUrl);
+          hls.attachMedia(videoPlayer);
+        } else if (videoPlayer.canPlayType("application/vnd.apple.mpegurl")) {
+          videoPlayer.src = streamUrl;
+        }
+
+        const nextButton = document.getElementById("nextButton");
+        const autoAdvanceToggle = document.getElementById("autoAdvanceToggle");
+
+        const clientId = Math.random().toString(36).slice(2);
+        const IGNORE_LOCAL_EVENTS_MS = 1000;
+        let lastSeq = 0;
+        let ignoreLocalEventsUntil = 0;
+
+        // Helper - build POST requests.
+        const postJson = (endpoint, body) =>
+          fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mediaId: videoId,
+              path: videoUrl,
+              name: videoTitle,
+              ...body,
+            }),
+          });
+
+        // Helper - build the player URL for a video ({ treePath, name, mediaId }), plus any extra flags.
+        const videoPageUrl = ({ treePath, name, mediaId }, flags = {}) => {
+          const params = new URLSearchParams({
+            path: treePath,
+            name,
+            id: mediaId,
+            autoplay: 1,
+            ...flags,
+          });
+          return `/video.html?${params}`;
+        };
+
+        // Apply another client's play / pause / seek without re-broadcasting it.
+        const applyRemoteState = (position, paused) => {
+          ignoreLocalEventsUntil = Date.now() + IGNORE_LOCAL_EVENTS_MS;
+          videoPlayer.currentTime = position;
+
+          console.log("paused: ", paused);
+          if (paused) videoPlayer.pause();
+          else
+            videoPlayer.play().catch((err) => {
+              console.error("Error: ", err);
+            });
+        };
+
+        // Broadcase this client's play / pause / seek, and ignore
+        const sendControl = (paused) => {
+          if (Date.now() < ignoreLocalEventsUntil) return;
+          postJson("/control", {
+            clientId,
+            paused,
+            position: videoPlayer.currentTime,
+          });
+        };
+
+        // HEARTBEAT 💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗💗
+        let pending = false; // ensures there are no overlapping requests. prev request must finish before next.
+        const heartbeat = async () => {
+          if (!videoId || pending) return;
+          pending = true;
+          try {
+            // Pass the position as well as the last control sequence so the server can distinguish from stale heartbeats.
+            const res = await postJson("/progress", {
+              position: videoPlayer.currentTime,
+              controlSeq: lastSeq,
+            });
+            const state = await res.json();
+            if (state.seq > lastSeq) {
+              lastSeq = state.seq;
+
+              if (state.mediaId !== videoId) {
+                // Reload the page for consistent behaviour, with join=1 to avoid resetting current video on backend.
+                window.location.replace(videoPageUrl(state, { join: 1 }));
+                return;
+              }
+
+              if (state.controlClientId !== clientId) {
+                applyRemoteState(state.controlPosition, state.paused);
+              }
+            }
+          } catch (err) {
+            console.error("Heartbeat Error: ", err);
+          } finally {
+            pending = false;
+          }
+        };
+
+        // Video Control Event Handling
+        videoPlayer.addEventListener("play", () => sendControl(false));
+        videoPlayer.addEventListener("pause", () => sendControl(true));
+        videoPlayer.addEventListener("seeking", () =>
+          sendControl(videoPlayer.paused),
+        );
+
+        // ---------------- Next Video / Auto Advance ----------------
+        const AUTO_ADVANCE_STORAGE_KEY = "autoAdvance"; // Local to this browser; not synced.
+
+        const playNextVideo = async () => {
+          try {
+            const query = new URLSearchParams({ path: decodedVideoUrl });
+            const res = await fetch(`/next-video?${query}`);
+            const { video } = await res.json();
+            if (video) window.location.assign(videoPageUrl(video, {}));
+          } catch (err) {
+            console.error("Next Video Error: ", err);
+          }
+        };
+        nextButton.addEventListener("click", playNextVideo);
+        videoPlayer.addEventListener("ended", () => {
+          if (autoAdvanceToggle.checked) playNextVideo();
+        });
+
+        // Off unless this browser turned it on.
+        autoAdvanceToggle.checked =
+          localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "on";
+        autoAdvanceToggle.addEventListener("change", () => {
+          localStorage.setItem(
+            AUTO_ADVANCE_STORAGE_KEY,
+            autoAdvanceToggle.checked ? "on" : "off",
+          );
+        });
+
+        // Initialize
+        const init = async () => {
+          // Broadcast the current/new video if not joining.
+          if (!join) await postJson("/select-video", {});
+
+          // Check for persisted playback position.
+          const res = await fetch(`/progress?mediaId=${videoId}`);
+          const data = await res.json();
+
+          let controlSeq = data.seq;
+
+          // Broadcast play/pause and position.
+          if (!join) {
+            const res = await postJson("/control", {
+              clientId,
+              paused: !autoplay,
+              position: data.position,
+            });
+            const result = await res.json();
+            controlSeq = result.controlSeq;
+          }
+
+          lastSeq = controlSeq;
+          applyRemoteState(data.position, join ? data.paused : !autoplay); // position, paused
+          setInterval(heartbeat, SAVE_POSITION_INTERVAL);
+        };
+        init();
+      };
+    </script>
+  </body>
+</html>

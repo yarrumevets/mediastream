@@ -80,3 +80,8 @@ Distributed under the MIT License. See the LICENSE file for more information.
 ⚠️ Suppressed user controls: ignoreLocalEventsUntil blocks all control events for one second, including legitimate user actions immediately after synchronization.
 
 🐌 Excessive heartbeat frequency: Every 53 ms means up to approximately 19 requests per second per client. That's unnecessary server traffic.
+
+OTHER STUFF:
+
+Need to copy the file that yarn add hls.js downloads, to public so it can be served:
+cp node_modules/hls.js/dist/hls.min.js public/hls.min.js

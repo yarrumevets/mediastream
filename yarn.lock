@@ -251,6 +251,11 @@ hasown@^2.0.2:
   dependencies:
     function-bind "^1.1.2"
 
+hls.js@^1.7.3:
+  version "1.7.3"
+  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.7.3.tgz#79a3338dd2e78fe63fc2ba6cfebdf5e34495537a"
+  integrity sha512-MsPlx6yVW4Qv4C7mEVou4/gk/5cN2dVxOTnrNjPSmyH2f0Ln+/UkG10Ax1PE6OvrmTVPKgQYozTtBaPOuCzq7A==
+
 http-errors@^2.0.0, http-errors@^2.0.1, http-errors@~2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/http-errors/-/http-errors-2.0.1.tgz#36d2f65bc909c8790018dd36fb4d93da6caae06b"
