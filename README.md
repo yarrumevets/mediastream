@@ -85,3 +85,13 @@ OTHER STUFF:
 
 Need to copy the file that yarn add hls.js downloads, to public so it can be served:
 cp node_modules/hls.js/dist/hls.min.js public/hls.min.js
+
+## ☢️ Hard Reset
+
+This keeps the users, but wipes everything else.
+
+```
+sqlite3 media.db "DELETE FROM user_media_state; DELETE FROM media;"
+node update.js
+node server.js
+```

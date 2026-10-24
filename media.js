@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import db from "./db.js";
 import config from "./config.js";
 import secretConfig from "./secret.config.js";
@@ -89,21 +88,6 @@ const buildMediaTree = async () => {
 
 // -------------------------------[ DATABASE SYNC ]----------------------------------//
 
-const HASH_BYTE_LIMIT = 10 * 1024 * 1024; // first 10MB
-
-const computeMediaId = async (filePath, fileSize) => {
-  const hash = crypto.createHash("sha256");
-  const stream = fs.createReadStream(filePath, {
-    start: 0,
-    end: HASH_BYTE_LIMIT - 1,
-  });
-  for await (const chunk of stream) {
-    hash.update(chunk);
-  }
-  hash.update(String(fileSize));
-  return hash.digest("hex");
-};
-
 const splitTreePath = (treePath) => treePath.split("/").filter(Boolean);
 // Returns the tree node at the given tree path, or null if not found.
 const findNode = (treePath) => {
@@ -144,89 +128,8 @@ const getDirContents = (treePath) => {
 // Returns the absolute disk path for a file's tree path, or null if not found.
 const getFilePath = (treePath) => findNode(treePath)?.path ?? null;
 
-// Walks the media tree once, computing an ID for every file.
-// Returns files with a unique ID, and groups of files sharing an ID.
-const scanMediaFiles = async () => {
-  const filesById = new Map();
-  const walk = async (nodes) => {
-    for (const node of nodes) {
-      console.log("node: ", node);
-      if (node.children) {
-        await walk(node.children);
-        continue;
-      }
-
-      if (!config.videoTypes.includes(node.ext)) {
-        continue;
-      }
-      const id = await computeMediaId(node.path, node.size);
-      const file = {
-        id,
-        path: node.path,
-        filename: node.name,
-        fileSize: node.size,
-      };
-      if (!filesById.has(id)) {
-        filesById.set(id, []);
-      }
-      filesById.get(id).push(file);
-    }
-  };
-  await walk(mediaTree);
-
-  const uniqueFiles = [];
-  const duplicateGroups = [];
-  for (const files of filesById.values()) {
-    if (files.length === 1) {
-      uniqueFiles.push(files[0]);
-    } else {
-      duplicateGroups.push(files);
-    }
-  }
-  return { uniqueFiles, duplicateGroups };
-};
-
-const syncMediaToDatabase = async () => {
-  const { uniqueFiles, duplicateGroups } = await scanMediaFiles();
-
-  for (const group of duplicateGroups) {
-    console.log(`Duplicate media found (skipped), ID: ${group[0].id}`);
-    for (const file of group) {
-      console.log(`  ${file.filename} - ${file.path}`);
-    }
-  }
-
-  const upsert = db.prepare(`
-    INSERT INTO media (id, path, filename, file_size)
-    VALUES (@id, @path, @filename, @fileSize)
-    ON CONFLICT(id) DO UPDATE SET
-      path = excluded.path,
-      filename = excluded.filename
-  `);
-  const upsertAll = db.transaction((files) => {
-    for (const file of files) {
-      upsert.run(file);
-    }
-  });
-  upsertAll(uniqueFiles);
-
-  console.log(`Media sync complete: ${uniqueFiles.length} files upserted.`);
-};
-
 const initMedia = async () => {
-  // @TODO: Either create another script just for the scan to run before running the server, OR, have the in-mem tree updated with the ID
-  // while the DB is being updated. Right now, the tree must be built, then the scan, then the tree rebuilt again. This works, but is messy.
-
-  // Just run the server with the current DB setup.
   mediaTree = await buildMediaTree();
-
-  // ! ONLY UNCOMMENT THESE 2 LINES IF: Media folders are changed, newly added files, etc. It rebuilds the DB.
-  // Scan all folders from the config, rebuild the database files, and re-build the in-mem structure so the IDs are included.
-  // Note: this is currently additive, so it doesn't remove old entries, just adds new ones OR updates existing intries with the exact same video (hash & size)
-  // await syncMediaToDatabase();
-  // mediaTree = await buildMediaTree();
-
-  orderedVideos = listVideosInOrder(mediaTree);
 };
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//
@@ -302,4 +205,5 @@ export {
   getVideoDuration,
   isTitleFolder,
   getTitleFolder,
+  buildMediaTree, // used externally for updating.
 };

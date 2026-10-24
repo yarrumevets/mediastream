@@ -1,4 +1,19 @@
-// Build the
+// Build the database with the current config directories.
+
+/*
+    Remove the current media data and metadata while preserving user accounts:
+
+    sqlite3 media.db "DELETE FROM user_media_state; DELETE FROM media;"
+    node update.js
+    node server.js
+
+    Current issue:
+    - Changing (resizing) a video at the same location makes a new record, leaving the old. Can cause wrong ID lookups.
+    - Deleted videos' records remain indefinitely.
+
+    Notes:
+    - Do not run while server is running.
+*/
 
 import fs from "node:fs";
 import crypto from "node:crypto";
