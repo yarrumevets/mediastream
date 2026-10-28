@@ -115,3 +115,17 @@ ul#filesList li.fileWrapper {
   margin-bottom: 1em;
   color: #e0245e;
 }
+
+/* Cross-fading image (crossfadeImage.js): the overlay fades in over the base. */
+.crossfadeImage {
+  position: relative;
+}
+.crossfadeImage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.crossfadeImage .crossfadeOverlay {
+  opacity: 0;
+}

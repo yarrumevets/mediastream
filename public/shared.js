@@ -1,4 +1,9 @@
 // Helpers shared by the browse page (main.js) and the favorites page (favoritesPage.js).
+const PLACEHOLDER_COVER_SRC = "/images/placeholder.jpg";
+const COVER_FADE_MS = 500;
+const COVER_HOLD_MS = 1000;
+const checkIsJpg = (fname) => /\.jpg$/i.test(fname);
+const fileUrl = (treePath) => `/file?path=${encodeURIComponent(treePath)}`;
 
 // Check for cover.jpg, COVer2.jpg, etc.
 const checkIsCoverImage = (fname) => {
@@ -10,13 +15,7 @@ const createFolderLink = (f) => {
   const elLink = document.createElement("a");
   elLink.href = `/?path=${encodeURIComponent(f.treePath)}`;
   elLink.setAttribute("title", f.name);
-  const cover = f.children?.find((c) => checkIsCoverImage(c.name));
-  if (cover) {
-    const elCoverImage = document.createElement("img");
-    elCoverImage.src = `/file?path=${encodeURIComponent(cover.treePath)}`;
-    elCoverImage.classList.add("coverPic");
-    elLink.appendChild(elCoverImage);
-  }
+  elLink.appendChild(createCoverImage(f));
   const elLinkLabel = document.createElement("p");
   elLinkLabel.innerText = f.name;
   elLink.appendChild(elLinkLabel);
@@ -69,4 +68,51 @@ const createFavoriteButton = (treePath, isFavorite, options = {}) => {
 
   render();
   return elButton;
+};
+
+// The folder's .jpg images (as file URLs), cover first.
+const getCoverSlideshowSources = (folder, cover) => {
+  const otherImages = folder.children.filter(
+    (c) => c !== cover && !c.isDir && checkIsJpg(c.name),
+  );
+  return [cover, ...otherImages].map((c) => fileUrl(c.treePath));
+};
+
+// While hovered, cycles through the sources (only if there is more than one).
+const addHoverSlideshow = (crossfadeImage, sources) => {
+  if (sources.length < 2) return;
+  const slideshow = createSlideshow(crossfadeImage, sources, {
+    holdMs: COVER_HOLD_MS,
+  });
+  crossfadeImage.element.addEventListener("mouseenter", slideshow.start);
+  crossfadeImage.element.addEventListener("mouseleave", slideshow.stop);
+
+  // start if its already hovered.
+  if (crossfadeImage.element.parentElement?.matches(":hover")) {
+    console.log("par hov!");
+    slideshow.start();
+  }
+  // start if its already hovered.
+  if (crossfadeImage.element?.matches(":hover")) {
+    console.log("does hov!");
+    slideshow.start();
+  }
+};
+
+// Placeholder right away, replaced by the folder's cover once it loads.
+const createCoverImage = (folder) => {
+  const coverImage = createCrossfadeImage(PLACEHOLDER_COVER_SRC, {
+    fadeMs: COVER_FADE_MS,
+  });
+  coverImage.element.classList.add("coverPic");
+  const cover = folder.children?.find((c) => checkIsCoverImage(c.name));
+  if (!cover) return coverImage.element; // No cover: the placeholder stays.
+  const coverSrc = fileUrl(cover.treePath);
+  preloadImage(coverSrc)
+    .then(() => {
+      coverImage.showInstantly(coverSrc);
+      addHoverSlideshow(coverImage, getCoverSlideshowSources(folder, cover));
+    })
+    .catch((err) => console.error("Failed to load cover: ", err));
+  return coverImage.element;
 };
