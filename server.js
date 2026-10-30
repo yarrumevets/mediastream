@@ -21,8 +21,9 @@ import {
   updatePlaybackControl,
   selectVideo,
   startPlaybackPersistence,
+  getWatchedTreePaths,
 } from "./playback.js";
-import { streamVideo } from "./stream.js";
+import { streamVideo, clearStreamCache } from "./stream.js";
 import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
@@ -82,6 +83,7 @@ app.get("/next-video", (req, res) => {
 app.post("/select-video", (req, res) => {
   const { mediaId, path, name } = req.body;
   selectVideo(req.userId, mediaId, path, name);
+  clearStreamCache(getWatchedTreePaths()); // After selectVideo, so the new video's cache is kept.
   res.json({ ok: true });
 });
 

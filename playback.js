@@ -8,6 +8,12 @@ const WATCHING_NOW_MS = 60_000; // 1 minutes or less since last heartbeat = watc
 // One active playback state per user.
 const activePlaybackState = new Map();
 
+// ------------------ remove cache stuff -------------
+
+// Tree paths of every video in an active playback state, across all users.
+const getWatchedTreePaths = () =>
+  [...activePlaybackState.values()].map((state) => state.treePath);
+
 // --------------- Exclusion Stuff -------------------
 
 // Exclusion thresholds for persisting progress.
@@ -220,4 +226,5 @@ export {
   getCurrentVideo,
   selectVideo,
   startPlaybackPersistence,
+  getWatchedTreePaths,
 };

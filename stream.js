@@ -6,11 +6,51 @@ import { getFilePath, getVideoDuration } from "./media.js";
 
 const resolution = 480; // 720, 480, etc.
 
+// --------------------------------------------------
+
 const SEGMENT_SECONDS = 6;
 const cache = new Map();
 // const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "mediastream-"));
 const cacheDir = "/Volumes/Expansion1/mediastream-cache";
 fs.mkdirSync(cacheDir, { recursive: true });
+
+// --------------------------- removing cache (must come after fs.mkdirsync(...) ) ---------------
+
+const CACHE_DIR_PREFIX = "video-";
+// Deletes a cache directory. Logs failures instead of throwing, so cleanup can't crash the server.
+const removeCacheDir = (dir) => {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return true;
+  } catch (err) {
+    console.error(`Failed to delete cache: ${dir}`, err.message);
+    return false;
+  }
+};
+// Caches from a previous run (e.g. after a crash) are never reused, so remove them on startup.
+const removeOrphanedCaches = () => {
+  const orphans = fs
+    .readdirSync(cacheDir)
+    .filter((name) => name.startsWith(CACHE_DIR_PREFIX));
+  const removedCount = orphans.filter((name) =>
+    removeCacheDir(path.join(cacheDir, name)),
+  ).length;
+  console.log(`Deleted ${removedCount} orphaned cache(s) from a previous run.`);
+};
+removeOrphanedCaches();
+// Deletes the cache of every video not in keepTreePaths.
+export const clearStreamCache = (keepTreePaths) => {
+  const keep = new Set(keepTreePaths);
+  for (const [filePath, { treePath, dir }] of cache) {
+    if (keep.has(treePath)) continue;
+    cache.delete(filePath);
+    if (removeCacheDir(dir)) {
+      console.log(`Deleted cache: ${treePath} (${path.basename(dir)})`);
+    }
+  }
+};
+
+// --------------------------------------------
 
 const transcodeSegment = (filePath, index, duration, dir) => {
   const target = path.join(dir, `${index}.ts`);
@@ -66,15 +106,17 @@ const transcodeSegment = (filePath, index, duration, dir) => {
     });
 
     ffmpeg.on("error", reject);
-
     ffmpeg.on("close", (code) => {
-      if (code !== 0) {
-        fs.rmSync(temporary, { force: true });
-        return reject(new Error(error || `FFmpeg exited: ${code}`));
+      try {
+        if (code !== 0) {
+          fs.rmSync(temporary, { force: true });
+          throw new Error(error || `FFmpeg exited: ${code}`);
+        }
+        fs.renameSync(temporary, target); // Throws if the cache dir was deleted mid-transcode.
+        resolve(target);
+      } catch (err) {
+        reject(err);
       }
-
-      fs.renameSync(temporary, target);
-      resolve(target);
     });
   });
 };
@@ -89,9 +131,10 @@ export const streamVideo = async (req, res) => {
   try {
     if (!cache.has(filePath)) {
       const duration = getVideoDuration(treePath);
-      const dir = fs.mkdtempSync(path.join(cacheDir, "video-"));
+      const dir = fs.mkdtempSync(path.join(cacheDir, CACHE_DIR_PREFIX));
 
       cache.set(filePath, {
+        treePath,
         duration,
         dir,
         segments: new Map(),
