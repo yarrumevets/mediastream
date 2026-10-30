@@ -3,7 +3,7 @@
 /*
     Remove the current media data and metadata while preserving user accounts:
 
-    sqlite3 media.db "DELETE FROM user_media_state; DELETE FROM media;"
+    sqlite3 media.db "DELETE FROM media_info; DELETE FROM user_media_state; DELETE FROM media;"
     node update.js
     node server.js
 
@@ -20,6 +20,9 @@ import crypto from "node:crypto";
 import db from "./db.js";
 import config from "./config.js";
 import { buildMediaTree } from "./media.js";
+
+// Gather technical metadata about the video file.
+import { probeVideo } from "./probe.js";
 
 let mediaTree = [];
 
@@ -63,6 +66,7 @@ const identifyVideos = async (videos) => {
     "SELECT id FROM media WHERE path = ? AND file_size = ?",
   );
   for (const video of videos) {
+    console.log(`Processing: ${video.path}`);
     const existing = findExisting.get(video.path, video.size);
     const id = existing?.id ?? (await computeMediaId(video.path, video.size));
     files.push({
@@ -140,6 +144,7 @@ const syncMediaToDatabase = async () => {
   reportDuplicates(duplicateGroups);
   upsertMedia(uniqueFiles);
   console.log(`Media sync complete: ${uniqueFiles.length} files upserted.`);
+  await syncMediaInfo(uniqueFiles);
 };
 
 // ----------------------------------------------------------------------------------------------
@@ -148,12 +153,42 @@ const initMedia = async () => {
   console.log("INITIALIZING . . . . . . . . .");
   const start = performance.now();
   mediaTree = await buildMediaTree();
+  console.log("Built tree...");
   await syncMediaToDatabase();
   // Show elapsed time.
   const ms = performance.now() - start;
   const min = Math.floor(ms / 60000);
   const sec = Math.floor((ms % 60000) / 1000);
-  console.log(`. . . . . . . . . . . . . FINISHED SCANNING IN ${min}m ${sec}s`);
+  console.log(
+    `. . . . . . . . . . . . . . . . . . FINISHED SCANNING IN ${min}m ${sec}s`,
+  );
+};
+
+// ------------------------------[ media info ]------------------------------
+// Probe and save media info for videos that don't have it yet.
+const syncMediaInfo = async (files) => {
+  const hasInfo = db.prepare("SELECT 1 FROM media_info WHERE media_id = ?");
+  const insert = db.prepare(`
+     INSERT OR REPLACE INTO media_info
+       (media_id, container, duration, video_codec, video_profile, video_level, width, height, audio_codec)
+     VALUES
+       (@mediaId, @container, @duration, @videoCodec, @videoProfile, @videoLevel, @width, @height, @audioCodec)
+   `);
+
+  const unprobedFiles = files.filter((file) => !hasInfo.get(file.id));
+  let probedCount = 0;
+  for (const file of unprobedFiles) {
+    try {
+      const info = await probeVideo(file.path);
+      insert.run({ mediaId: file.id, ...info });
+      probedCount++;
+    } catch (err) {
+      console.error(`Failed to probe (skipped): ${file.path}`, err.message);
+    }
+  }
+  console.log(
+    `Media info complete: ${probedCount}/${unprobedFiles.length} files probed.`,
+  );
 };
 
 await initMedia();

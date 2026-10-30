@@ -4,7 +4,6 @@ const db = new Database("media.db");
 
 // Store dates with: new Date().toISOString(), ex: 2026-09-30T01:42:15.123Z ,
 // Booleans 0 / 1 (ex: watched )
-
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +37,19 @@ db.exec(`
     created_at TEXT NOT NULL,
     PRIMARY KEY (user_id, tree_path),
     FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS media_info (
+    media_id TEXT PRIMARY KEY,
+    container TEXT,
+    duration REAL,
+    video_codec TEXT,
+    video_profile TEXT,
+    video_level INTEGER,
+    width INTEGER,
+    height INTEGER,
+    audio_codec TEXT,
+    FOREIGN KEY (media_id) REFERENCES media(id)
   );
 `);
 

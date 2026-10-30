@@ -173,24 +173,58 @@ const getNextVideo = (treePath) => {
 
 // --------------------------[get video duration]------------------------------
 
+// // Get video duration (directly with ffprobe)
+// const videoDurationCache = new Map();
+// const getVideoDuration = (treePath) => {
+//   const cachedDuration = videoDurationCache.get(treePath);
+//   if (cachedDuration) return cachedDuration;
+//   const output = execFileSync(
+//     "ffprobe",
+//     [
+//       "-v",
+//       "error",
+//       "-show_entries",
+//       "format=duration",
+//       "-of",
+//       "default=noprint_wrappers=1:nokey=1",
+//       getFilePath(treePath),
+//     ],
+//     { encoding: "utf8" },
+//   );
+//   const duration = parseFloat(output);
+//   console.log(treePath, " - duration: ", duration);
+//   videoDurationCache.set(treePath, duration);
+//   return duration;
+// };
+
+// Get video duration (from DB)
 const videoDurationCache = new Map();
 const getVideoDuration = (treePath) => {
   const cachedDuration = videoDurationCache.get(treePath);
   if (cachedDuration) return cachedDuration;
-  const output = execFileSync(
-    "ffprobe",
-    [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      getFilePath(treePath),
-    ],
-    { encoding: "utf8" },
-  );
-  const duration = parseFloat(output);
+  const node = findNode(treePath);
+  const stored = node?.id
+    ? db
+        .prepare("SELECT duration FROM media_info WHERE media_id = ?")
+        .get(node.id)?.duration
+    : null;
+  const duration =
+    stored ??
+    parseFloat(
+      execFileSync(
+        "ffprobe",
+        [
+          "-v",
+          "error",
+          "-show_entries",
+          "format=duration",
+          "-of",
+          "default=noprint_wrappers=1:nokey=1",
+          getFilePath(treePath),
+        ],
+        { encoding: "utf8" },
+      ),
+    );
   console.log(treePath, " - duration: ", duration);
   videoDurationCache.set(treePath, duration);
   return duration;

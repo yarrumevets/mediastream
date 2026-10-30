@@ -12,3 +12,6 @@ secret.config.js
 /public/config.js
 
 *.db
+
+code_dump.txt
+dump.sh
