@@ -48,6 +48,7 @@ db.exec(`
     video_level INTEGER,
     width INTEGER,
     height INTEGER,
+    pix_fmt TEXT,
     audio_codec TEXT,
     FOREIGN KEY (media_id) REFERENCES media(id)
   );
@@ -61,6 +62,16 @@ const hasVideoFavoriteColumn = db
   .some((column) => column.name === "favorite");
 if (hasVideoFavoriteColumn) {
   db.exec("ALTER TABLE user_media_state DROP COLUMN favorite");
+}
+
+// media_info gained pix_fmt: add the column and clear existing rows so update.js re-probes them.
+const hasPixFmtColumn = db
+  .pragma("table_info(media_info)")
+  .some((column) => column.name === "pix_fmt");
+if (!hasPixFmtColumn) {
+  db.exec(
+    "ALTER TABLE media_info ADD COLUMN pix_fmt TEXT; DELETE FROM media_info;",
+  );
 }
 
 export default db;

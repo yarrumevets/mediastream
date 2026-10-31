@@ -6,7 +6,7 @@ const execFileAsync = promisify(execFile);
 
 const PROBE_ENTRIES = [
   "format=format_name,duration",
-  "stream=codec_type,codec_name,profile,level,width,height",
+  "stream=codec_type,codec_name,profile,level,width,height,pix_fmt",
   "stream_disposition=default,attached_pic",
 ].join(":");
 
@@ -54,6 +54,7 @@ const probeVideo = async (filePath) => {
     videoLevel: toLevelOrNull(video?.level),
     width: video?.width ?? null,
     height: video?.height ?? null,
+    pixFmt: video?.pix_fmt ?? null,
     audioCodec: audio?.codec_name ?? null,
   };
 };

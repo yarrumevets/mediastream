@@ -170,9 +170,9 @@ const syncMediaInfo = async (files) => {
   const hasInfo = db.prepare("SELECT 1 FROM media_info WHERE media_id = ?");
   const insert = db.prepare(`
      INSERT OR REPLACE INTO media_info
-       (media_id, container, duration, video_codec, video_profile, video_level, width, height, audio_codec)
+       (media_id, container, duration, video_codec, video_profile, video_level, width, height, pix_fmt, audio_codec)
      VALUES
-       (@mediaId, @container, @duration, @videoCodec, @videoProfile, @videoLevel, @width, @height, @audioCodec)
+       (@mediaId, @container, @duration, @videoCodec, @videoProfile, @videoLevel, @width, @height, @pixFmt, @audioCodec)
    `);
 
   const unprobedFiles = files.filter((file) => !hasInfo.get(file.id));
