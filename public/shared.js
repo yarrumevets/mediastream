@@ -18,6 +18,9 @@ const createFolderLink = (f) => {
   elLink.appendChild(createCoverImage(f));
   const elLinkLabel = document.createElement("p");
   elLinkLabel.innerText = f.name;
+  if (f.watchStatus) {
+    elLinkLabel.prepend(createWatchIcon(f.watchStatus));
+  }
   elLink.appendChild(elLinkLabel);
   return elLink;
 };
@@ -115,4 +118,14 @@ const createCoverImage = (folder) => {
     })
     .catch((err) => console.error("Failed to load cover: ", err));
   return coverImage.element;
+};
+
+// Watched Icon
+const WATCH_ICONS = { watched: "✓", partial: "◐" };
+// Marker shown before a video / folder name.
+const createWatchIcon = (status) => {
+  const icon = document.createElement("span");
+  icon.className = `watch-icon watch-${status}`;
+  icon.textContent = WATCH_ICONS[status];
+  return icon;
 };

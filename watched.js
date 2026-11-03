@@ -1,4 +1,5 @@
 import db from "./db.js";
+import { getDescendantVideoIds } from "./media.js";
 
 const WATCHED_FRACTION = 0.8;
 const MAX_PLAYBACK_RATE = 2; // Fastest playback speed a position jump can be explained by.
@@ -112,9 +113,33 @@ const recordPlayback = (session, fromPosition, toPosition, elapsedMs) => {
   }
 };
 
+// ---------------- Watched status ----------------
+
+// "watched": every video is watched. "partial": some are. null: none, or no videos.
+// A single video is never "partial".
+const getWatchStatus = (mediaIds, watchedIds) => {
+  if (mediaIds.length === 0) return null;
+  const watchedCount = mediaIds.filter((id) => watchedIds.has(id)).length;
+  if (watchedCount === mediaIds.length) return "watched";
+  return watchedCount > 0 ? "partial" : null;
+};
+
+// Adds a watchStatus to each listing entry (file or folder).
+const markWatched = (userId, entries) => {
+  const watchedIds = new Set(getWatchedMediaIds(userId));
+  return entries.map((entry) => ({
+    ...entry,
+    watchStatus: getWatchStatus(
+      getDescendantVideoIds(entry.treePath),
+      watchedIds,
+    ),
+  }));
+};
+
 export {
   loadWatchSession,
   recordPlayback,
   persistWatchSession,
   getWatchedMediaIds,
+  markWatched,
 };

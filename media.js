@@ -162,6 +162,13 @@ const listVideosInOrder = (nodes) =>
       if (node.children) return listVideosInOrder(node.children);
       return isPlayableVideo(node) ? [node] : [];
     });
+
+// Returns the media IDs of every playable video at or under the given tree path. (for identifying watched folders)
+const getDescendantVideoIds = (treePath) => {
+  const node = findNode(treePath);
+  return node ? listVideosInOrder([node]).map((video) => video.id) : []; // unnecessary sort here by using listvideosinorder. @todo: break it into 2 helpers?
+};
+
 // Returns the video that follows the given tree path, wrapping from the last video
 // back to the first. Returns null if the path is not a playable video.
 const getNextVideo = (treePath) => {
@@ -236,6 +243,7 @@ export {
   getFilePath,
   findNodeById,
   getNextVideo,
+  getDescendantVideoIds,
   getVideoDuration,
   isTitleFolder,
   getTitleFolder,

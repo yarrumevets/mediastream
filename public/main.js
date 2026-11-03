@@ -56,9 +56,10 @@ const navBackButtonsRemove = () => {
   });
 };
 
-const createVideoLink = ({ id, name, treePath }) => {
+const createVideoLink = ({ id, name, treePath, watchStatus }) => {
   const elLink = document.createElement("a");
   elLink.innerText = name;
+  if (watchStatus) elLink.prepend(createWatchIcon(watchStatus));
   elLink.href = `/${PLAYER_PAGE}?path=${encodeURIComponent(treePath)}&name=${encodeURIComponent(name)}&id=${encodeURIComponent(id)}`;
   return elLink;
 };
@@ -70,6 +71,7 @@ const createRootElement = (f) => {
     navigate(f.treePath);
   });
   elLink.innerText = f.displayName || f.name;
+  if (f.watchStatus) elLink.prepend(createWatchIcon(f.watchStatus));
   elLink.classList.add("rootfolder"); // root folder special styling.
   return elLink;
 };

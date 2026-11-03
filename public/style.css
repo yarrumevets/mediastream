@@ -129,3 +129,15 @@ ul#filesList li.fileWrapper {
 .crossfadeImage .crossfadeOverlay {
   opacity: 0;
 }
+
+/* Watched Icon */
+
+.watch-icon {
+  margin-right: 0.4em;
+}
+.watch-watched {
+  color: #2ecc71;
+}
+.watch-partial {
+  color: #f5a623;
+}

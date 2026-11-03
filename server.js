@@ -25,6 +25,7 @@ import {
 } from "./playback.js";
 import { streamVideo, clearStreamCache } from "./stream.js";
 import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
+import { getWatchedMediaIds, markWatched } from "./watched.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 startPlaybackPersistence();
@@ -63,7 +64,11 @@ app.use(express.static("public"));
 
 app.get("/dirtree", (req, res) => {
   const contents = getDirContents(req.query.path);
-  res.json({ ...contents, files: markFavorites(req.userId, contents.files) });
+  const files = markWatched(
+    req.userId,
+    markFavorites(req.userId, contents.files),
+  );
+  res.json({ ...contents, files });
 });
 
 app.get("/file", (req, res) => {
