@@ -130,6 +130,7 @@ const getFilePath = (treePath) => findNode(treePath)?.path ?? null;
 
 const initMedia = async () => {
   mediaTree = await buildMediaTree();
+  orderedVideos = listVideosInOrder(mediaTree); // must rebuild this list if buildMediaTree is ever rebuilt.
 };
 
 // -------------------------------[ TREE LOOKUPS ]----------------------------------//
