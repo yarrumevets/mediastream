@@ -23,6 +23,7 @@ db.exec(`
     media_id TEXT NOT NULL,
     position INTEGER DEFAULT 0,
     watched INTEGER DEFAULT 0,
+    watched_ranges TEXT DEFAULT '[]',
     last_watched_at TEXT,
 
     PRIMARY KEY (user_id, media_id),
@@ -71,6 +72,16 @@ const hasPixFmtColumn = db
 if (!hasPixFmtColumn) {
   db.exec(
     "ALTER TABLE media_info ADD COLUMN pix_fmt TEXT; DELETE FROM media_info;",
+  );
+}
+
+// user_media_state gained watched_ranges: the played [start, end] seconds, used to decide "watched".
+const hasWatchedRangesColumn = db
+  .pragma("table_info(user_media_state)")
+  .some((column) => column.name === "watched_ranges");
+if (!hasWatchedRangesColumn) {
+  db.exec(
+    "ALTER TABLE user_media_state ADD COLUMN watched_ranges TEXT DEFAULT '[]'",
   );
 }
 

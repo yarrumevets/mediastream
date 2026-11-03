@@ -1,5 +1,10 @@
 import db from "./db.js";
 import { getVideoDuration } from "./media.js";
+import {
+  loadWatchSession,
+  recordPlayback,
+  persistWatchSession,
+} from "./watched.js";
 
 // const DB_SAVE_INTERVAL_MS = 10_000;
 const PERSIST_INTERVAL_MS = 20_000;
@@ -81,6 +86,7 @@ const selectVideo = (userId, mediaId, treePath, name) => {
   if (!state || state.mediaId !== mediaId) {
     // video has changed.
     if (state) {
+      persistWatchSession(state.watch);
       try {
         // Force persisting progress of the video that we're switching from, as it only persists every 10 seconds.
         const positionToPersist = inExclusionZone(state) ? 0 : state.position;
@@ -101,9 +107,11 @@ const selectVideo = (userId, mediaId, treePath, name) => {
       getVideoDuration(treePath), // getting the video duration via ffprobe - @TODO: add this to the scan job so we have it saved in DB instead.
     );
 
+    state.watch = loadWatchSession(userId, mediaId, state.duration);
+    state.controlSeq = activePlaybackState.get(userId)?.controlSeq + 1 || 0;
+
     // get video duration. @TODO: persist the duration when found, and get from db if persisted (add to scan job?)
 
-    state.controlSeq = activePlaybackState.get(userId)?.controlSeq + 1 || 0;
     activePlaybackState.set(userId, state);
   }
   state.treePath = treePath;
@@ -146,6 +154,7 @@ const getProgress = (userId, mediaId) => {
 const persistActivePlaybackStates = () => {
   const now = Date.now();
   for (const [userId, state] of activePlaybackState) {
+    persistWatchSession(state.watch);
     try {
       const positionToPersist = inExclusionZone(state) ? 0 : state.position;
       persistProgress(userId, state.mediaId, positionToPersist);
@@ -173,6 +182,15 @@ const saveProgress = (userId, mediaId, position, controlSeq) => {
   if (!state) return null; // No active state for this user to update.
   const now = Date.now();
   if (state.mediaId === mediaId && controlSeq === state.controlSeq) {
+    // Track how much has played.
+    if (!state.paused) {
+      recordPlayback(
+        state.watch,
+        state.position,
+        position,
+        now - state.updatedAt,
+      );
+    }
     // Only update the same video's state, and only when the controlSeq is not stale.
     // Heartbeats must prove they've received the most recent control before they can update progress.
     state.position = position;

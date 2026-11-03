@@ -59,7 +59,7 @@ const getVideoFiles = (nodes) => {
   return videos;
 };
 
-// Generate IDs and collect file details for each video.
+// Generate IDs and collect file details for each video. (@TODO: DB updates as list is created. Have to currently wait for entire list before anything is persisted!)
 const identifyVideos = async (videos) => {
   const files = [];
   const findExisting = db.prepare(
@@ -174,10 +174,11 @@ const syncMediaInfo = async (files) => {
      VALUES
        (@mediaId, @container, @duration, @videoCodec, @videoProfile, @videoLevel, @width, @height, @pixFmt, @audioCodec)
    `);
-
   const unprobedFiles = files.filter((file) => !hasInfo.get(file.id));
+  console.log(`${unprobedFiles.length} unprobed files...`);
   let probedCount = 0;
   for (const file of unprobedFiles) {
+    console.log("Probing incomplete file: ", file);
     try {
       const info = await probeVideo(file.path);
       insert.run({ mediaId: file.id, ...info });
