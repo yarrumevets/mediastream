@@ -15,7 +15,8 @@ db.exec(`
     id TEXT PRIMARY KEY,
     path TEXT NOT NULL,
     filename TEXT NOT NULL,
-    file_size INTEGER NOT NULL
+    file_size INTEGER NOT NULL,
+    subtitles_processed INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS user_media_state (
@@ -85,4 +86,11 @@ if (!hasWatchedRangesColumn) {
   );
 }
 
+// media gained subtitles_processed: 1 once the video's vtt files have been generated (or none were found).
+const hasSubtitlesProcessedColumn = db
+  .pragma("table_info(media)")
+  .some((column) => column.name === "subtitles_processed");
+if (!hasSubtitlesProcessedColumn) {
+  db.exec("ALTER TABLE media ADD COLUMN subtitles_processed INTEGER DEFAULT 0");
+}
 export default db;

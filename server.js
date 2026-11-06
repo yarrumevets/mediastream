@@ -13,6 +13,7 @@ import {
   getDirContents,
   getFilePath,
   getNextVideo,
+  getSubtitles,
 } from "./media.js";
 import {
   getCurrentVideo,
@@ -81,6 +82,10 @@ app.get("/stream", streamVideo);
 
 app.get("/next-video", (req, res) => {
   res.json({ video: getNextVideo(req.query.path) });
+});
+
+app.get("/subtitles", (req, res) => {
+  res.json({ subtitles: getSubtitles(req.query.path) });
 });
 
 // -------------------------------[ PLAYBACK ]----------------------------------//
