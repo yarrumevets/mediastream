@@ -244,6 +244,7 @@ const getVideoDuration = (treePath) => {
 const getSubtitles = (treePath) => {
   const parentPath = splitTreePath(treePath).slice(0, -1).join("/");
   const videoName = path.parse(treePath).name;
+
   return (findNode(parentPath)?.children ?? [])
     .filter(
       (node) => node.ext === "vtt" && node.name.startsWith(`${videoName}.`),
@@ -252,6 +253,10 @@ const getSubtitles = (treePath) => {
       label:
         node.name.slice(videoName.length + 1, -".vtt".length) || "Subtitles",
       treePath: node.treePath,
+      srclang:
+        node.name
+          .slice(videoName.length + 1, -4)
+          .match(/^[a-z]{2,3}(?=\.|$)/i)?.[0] ?? "und",
     }));
 };
 

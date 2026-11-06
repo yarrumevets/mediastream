@@ -92,10 +92,11 @@
             );
             // const { tracks } = await res.json();
             const { subtitles: tracks } = await res.json();
-            for (const { label, treePath } of tracks) {
+            for (const { label, srclang, treePath } of tracks) {
               const track = document.createElement("track");
               track.kind = "subtitles";
               track.label = label;
+              track.srclang = srclang;
               track.src = `/file?path=${encodeURIComponent(treePath)}`;
               videoPlayer.append(track);
             }
