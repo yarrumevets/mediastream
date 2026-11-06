@@ -15,12 +15,6 @@
     <h2 id="videoTitle"></h2>
     <video id="videoPlayer" controls>
       Your browser does not support the video tag.
-      <track
-        id="subtitlesTrack"
-        kind="subtitles"
-        srclang="en"
-        label="English"
-      />
     </video>
 
     <div id="playbackOptions">
@@ -67,6 +61,28 @@
         const videoSource = document.createElement("source");
         videoPlayer.append(videoSource);
         videoSource.src = `/file?path=${videoUrl}&type=${videoType}`;
+
+        // Subtitles: plain <track> elements; the browser's own CC menu handles selection.
+        const addSubtitleTracks = async () => {
+          try {
+            const res = await fetch(
+              `/subtitles?path=${encodeURIComponent(videoUrl)}`,
+            );
+            // const { tracks } = await res.json();
+            const { subtitles: tracks } = await res.json();
+            for (const { label, srclang, treePath } of tracks) {
+              const track = document.createElement("track");
+              track.kind = "subtitles";
+              track.label = label;
+              track.srclang = srclang;
+              track.src = `/file?path=${encodeURIComponent(treePath)}`;
+              videoPlayer.append(track);
+            }
+          } catch (err) {
+            console.error("Subtitles Error: ", err);
+          }
+        };
+        addSubtitleTracks();
 
         const nextButton = document.getElementById("nextButton");
         const autoAdvanceToggle = document.getElementById("autoAdvanceToggle");
