@@ -47,6 +47,7 @@ A basic `users` table and login system exist mainly so playback progress/favorit
 - **Media indexing (SQLite)** — Every video is identified by a content hash (first 10MB + file size), so renamed/moved files keep their history, and a scan reports (without touching) duplicate files. A separate pass probes each video with `ffprobe` and stores duration, container, codecs, resolution, and pixel format for reuse (e.g. deciding where "near the end of the video" starts).
 - **Authentication** — Simple username/password accounts (salted + hashed, scrypt), session via a signed, httpOnly cookie. Everything except the login page requires a session.
 - **Standalone library scanning** (`update.js`) — Rebuilds the media tree, syncs it into SQLite, and probes metadata without needing the server running; `subtitles.js` similarly runs as a standalone pass to (re)generate subtitle tracks for anything not yet processed.
+- **TMDB lookup** *(early/WIP)* — On a movie or TV title folder page, a "Fetch TMDB Data" button queries [TMDB](https://www.themoviedb.org/) (via a server-side `/tmdb` endpoint using your API token) and shows matching results' original title/name, language, release/air date, and overview. Requires a `tmdbToken` in `secret.config.js`.
 
 ## Installation & Setup
 
@@ -69,6 +70,7 @@ This app also shells out to **FFmpeg and FFprobe** for streaming, subtitle conve
 
 - Create this file from `SAMPLE.secret.config.js`.
 - Set the port, cookie secret, and the folder mappings/display names for each section's root folder(s).
+- Set `tmdbToken` to a TMDB API Read Access Token if you want TMDB lookups; get one from your [TMDB account settings](https://www.themoviedb.org/settings/api).
 
 ## Usage
 
@@ -126,6 +128,7 @@ Go to `http://localhost:<PORT>` in your browser, sign up, and log in.
 - Full-text search across the library (title, folder, maybe subtitle contents).
 - Clean up or remove unused legacy code (e.g. `utilities.js` duplicates logic now in `auth.js`/`media.js`/`update.js`).
 - Pick one playback mode going forward (`video.html` vs `videostream.html`) once HLS reliably covers the formats direct playback was kept around for.
+- Replace the TMDB lookup's placeholder styling/layout with a real UI, and use results to auto-fill folder metadata instead of just displaying them.
 
 ## ☢️ Hard Reset
 
