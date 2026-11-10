@@ -26,7 +26,7 @@ import {
 } from "./playback.js";
 import { streamVideo, clearStreamCache } from "./stream.js";
 import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
-import { getWatchedMediaIds, markWatched } from "./watched.js";
+import { markWatched } from "./watched.js";
 import { searchTmdb } from "./tmdb.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
