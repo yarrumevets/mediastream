@@ -27,6 +27,7 @@ import {
 import { streamVideo, clearStreamCache } from "./stream.js";
 import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
 import { getWatchedMediaIds, markWatched } from "./watched.js";
+import { searchTmdb } from "./tmdb.js";
 
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 startPlaybackPersistence();
@@ -140,4 +141,26 @@ app.put("/favorites", (req, res) => {
   }
   const saved = setFavorite(req.userId, path, favorite);
   res.status(saved ? 200 : 404).json({ ok: saved });
+});
+
+// --------------------------------[ TMDB ]-------------------------------//
+
+app.get("/tmdb", async (req, res) => {
+  const { type, title, year } = req.query;
+
+  if (
+    !["movie", "tv"].includes(type) ||
+    typeof title !== "string" ||
+    !title.trim()
+  ) {
+    return res.status(400).json({ error: "Invalid type or title" });
+  }
+
+  try {
+    const response = await searchTmdb(type, title, year);
+    res.status(response.status).json(await response.json());
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: "TMDB request failed" });
+  }
 });

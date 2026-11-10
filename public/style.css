@@ -89,7 +89,8 @@ ul#filesList li.fileWrapper {
 
 /* GLOBAL OVERRIDES */
 
-.hidden {
+.hidden,
+[hidden] {
   display: none !important;
 }
 
@@ -140,4 +141,22 @@ ul#filesList li.fileWrapper {
 }
 .watch-partial {
   color: #f5a623;
+}
+
+/* TMDB INFO */
+#tmdbSection {
+  display: flex;
+  background-color: #f5a623;
+  border: 2px dashed red;
+}
+
+#tmdbButton {
+  width: 20%;
+  height: 10%;
+}
+
+#tmdbInfo {
+  background-color: #2ecc71;
+  color: #e0245e;
+  width: 80%;
 }

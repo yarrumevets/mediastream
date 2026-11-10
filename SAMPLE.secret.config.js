@@ -1,6 +1,7 @@
 const secretConfig = {
   port: 1111,
   cookieSecret: "some-long-random-secret",
+  tmdbToken: "YOUR_TMDB_API_READ_ACCESS_TOKEN",
   sections: [
     {
       name: "Movies",

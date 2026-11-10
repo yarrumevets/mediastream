@@ -150,6 +150,20 @@ const getFolderContents = async (path) => {
 };
 
 const buildPage = async (path) => {
+  // TMDB Info setup stuff
+  const parts = path.split("/");
+  const type = { movies: "movie", tv: "tv" }[parts[0]] ?? null;
+  selectedTitle = parts.length === 2 && type ? { type, title: parts[1] } : null;
+  if (!selectedTitle) {
+    tmdbSection.hidden = true;
+  } else {
+    tmdbSection.hidden = false;
+  }
+  tmdbInfoView.innerHTML = "...";
+
+  console.log("PARTS: ", parts, "\nselectedTitle: ", selectedTitle);
+
+  // Build page.
   elFileList.innerHTML = "";
   try {
     const folderTree = await getFolderContents(path);
@@ -159,5 +173,78 @@ const buildPage = async (path) => {
     elFileList.innerHTML = `<li>Error loading files.</li>`;
   }
 };
+
+// TMDB Info stuff
+// AAAAA
+// Keys shown per result, per type (TMDB's key names differ between movies and tv).
+const TMDB_FIELDS = {
+  tv: [
+    "original_name",
+    "origin_country",
+    "original_language",
+    "first_air_date",
+    "overview",
+  ],
+  movie: ["original_title", "original_language", "release_date", "overview"],
+};
+const TMDB_RESULT_SEPARATOR = "\n\n--------------------\n\n";
+const formatTmdbResults = (type, results) =>
+  results
+    .map((result) =>
+      TMDB_FIELDS[type].map((key) => `${key}: ${result[key] ?? ""}`).join("\n"),
+    )
+    .join(TMDB_RESULT_SEPARATOR);
+
+// // BBBBB
+// const TMDB_FIELDS = [
+//   "original_name", // tv
+//   "original_title", // movie
+//   "origin_country", // tv only
+//   "original_language",
+//   "first_air_date", // tv
+//   "release_date", // movie
+//   "overview",
+// ];
+// const TMDB_SEPARATOR = "\n\n----------\n\n";
+// // "key: value" lines for whichever of the fields a result has.
+// const formatTmdbResult = (result) =>
+//   TMDB_FIELDS.filter((key) => key in result)
+//     .map((key) => `${key}: ${result[key]}`)
+//     .join("\n");
+
+const tmdbButton = document.getElementById("tmdbButton");
+const tmdbInfoView = document.getElementById("tmdbInfo");
+const tmdbSection = document.getElementById("tmdbSection");
+let selectedTitle = null;
+
+tmdbButton.addEventListener("click", async () => {
+  if (!selectedTitle) return;
+  try {
+    const params = new URLSearchParams(selectedTitle);
+    const res = await fetch(`/tmdb?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+
+    // AAAAA
+    const { type } = selectedTitle; // captured in case the user navigates before the response arrives.
+    tmdbInfoView.textContent =
+      formatTmdbResults(type, data.results ?? []) || "No results";
+
+    // // BBBBB
+    // tmdbInfoView.textContent = formatTmdbResults(data.results ?? []);
+  } catch (err) {
+    tmdbInfoView.textContent = err.message;
+  }
+
+  // tmdbInfoView.textContent = JSON.stringify(
+  //   data.results?.[0] ?? null,
+  //   null,
+  //   2,
+  // );
+  // } catch (err) {
+  //   tmdbInfoView.textContent = err.message;
+  // }
+});
 
 buildPage(initialPath);
