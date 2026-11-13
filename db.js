@@ -4,7 +4,8 @@ const db = new Database("media.db");
 
 // Store dates with: new Date().toISOString(), ex: 2026-09-30T01:42:15.123Z ,
 // Booleans 0 / 1 (ex: watched )
-db.exec(`
+db.exec(
+  `
     CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -54,7 +55,21 @@ db.exec(`
     audio_codec TEXT,
     FOREIGN KEY (media_id) REFERENCES media(id)
   );
-`);
+
+  CREATE TABLE IF NOT EXISTS subtitle_videos (
+    media_id TEXT PRIMARY KEY,
+    tree_path TEXT NOT NULL,
+    FOREIGN KEY (media_id) REFERENCES media(id)
+  );
+  CREATE TABLE IF NOT EXISTS subtitle_cues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id TEXT NOT NULL,
+    start_seconds REAL NOT NULL,
+    text TEXT NOT NULL,
+    FOREIGN KEY (media_id) REFERENCES media(id)
+  );
+`,
+);
 
 // ⚠️ ----- Migrations -----
 // Favorites moved from individual videos to folders: drop the old per-video column.

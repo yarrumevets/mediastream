@@ -50,6 +50,11 @@
         const autoplay = url.searchParams.get("autoplay") === "1";
         const join = url.searchParams.get("join") === "1";
 
+        const tParam = url.searchParams.get("t"); // seconds, from subtitle search.
+        const startAt = tParam === null ? null : Number(tParam);
+        const hasStartAt =
+          startAt !== null && Number.isFinite(startAt) && startAt >= 0;
+
         const videoUrl = url.searchParams.get("path");
         const videoTitle = url.searchParams.get("name");
         const videoType = url.searchParams.get("type"); // movie, series, ...
@@ -238,6 +243,8 @@
           const res = await fetch(`/progress?mediaId=${videoId}`);
           const data = await res.json();
 
+          const position = !join && hasStartAt ? startAt : data.position;
+
           let controlSeq = data.seq;
 
           // Broadcast play/pause and position.
@@ -245,14 +252,14 @@
             const res = await postJson("/control", {
               clientId,
               paused: !autoplay,
-              position: data.position,
+              position: position,
             });
             const result = await res.json();
             controlSeq = result.controlSeq;
           }
 
           lastSeq = controlSeq;
-          applyRemoteState(data.position, join ? data.paused : !autoplay); // position, paused
+          applyRemoteState(position, join ? data.paused : !autoplay); // position, paused
           setInterval(heartbeat, SAVE_POSITION_INTERVAL);
         };
         init();

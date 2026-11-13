@@ -2,11 +2,6 @@ const elFileList = document.getElementById("filesList");
 const elMainSection = document.getElementById("mainSection");
 const navBackButtons = Array.from(document.getElementsByClassName("navBack")); // Buttons array never changes.
 
-// // @TODO - do something better here. Controls which player opens from the library.
-// Currently, each player (video/videostream) navigates to itself on 'next'.
-// const PLAYER_PAGE = "video.html"; // regular - simple but doesn't work with many video/audio formats.
-const PLAYER_PAGE = "videostream.html";
-
 // ----- Navigation / Router -----
 // Get the current url path if any
 const urlParams = new URLSearchParams(window.location.search);

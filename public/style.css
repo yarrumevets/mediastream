@@ -160,3 +160,31 @@ ul#filesList li.fileWrapper {
   color: #e0245e;
   width: 80%;
 }
+
+/* ----------------------[ SUBTITLES ]-----------------------  */
+
+/* SUBTITLE SEARCH */
+#subtitlesLink {
+  display: inline-block;
+  margin: 0 0 1em 1em;
+}
+#subtitleSearchForm {
+  margin-bottom: 1em;
+}
+#subtitleStatus,
+#subtitleResults li {
+  color: #eee;
+}
+#subtitleResults {
+  text-align: left;
+  max-width: 60em;
+  margin: 0 auto;
+  list-style: none;
+  padding-left: 0;
+}
+#subtitleResults li {
+  margin-bottom: 0.6em;
+}
+#subtitleResults strong {
+  color: lightblue;
+}

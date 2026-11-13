@@ -5,6 +5,11 @@ const COVER_HOLD_MS = 1000;
 const checkIsJpg = (fname) => /\.jpg$/i.test(fname);
 const fileUrl = (treePath) => `/file?path=${encodeURIComponent(treePath)}`;
 
+// @TODO - do something better here. Controls which player opens from the library.
+// Currently, each player (video/videostream) navigates to itself on 'next'.
+// const PLAYER_PAGE = "video.html"; // regular - simple but doesn't work with many video/audio formats.
+const PLAYER_PAGE = "videostream.html";
+
 // Check for cover.jpg, COVer2.jpg, etc.
 const checkIsCoverImage = (fname) => {
   return /^cover\d*\.jpg$/i.test(fname);

@@ -29,6 +29,8 @@ import { markFavorites, getFavoriteFolders, setFavorite } from "./favorites.js";
 import { markWatched } from "./watched.js";
 import { searchTmdb } from "./tmdb.js";
 
+import { normalizeSearchQuery, searchSubtitles } from "./subtitleSearch.js";
+
 await initMedia(); // @TODO - refactor - this is probably a useless function and should just be moved here so the server can dictate which init calls are made.
 startPlaybackPersistence();
 
@@ -163,4 +165,12 @@ app.get("/tmdb", async (req, res) => {
     console.error(err);
     res.status(502).json({ error: "TMDB request failed" });
   }
+});
+
+// --------------------------------[ SUBTITLE SEARCH ]-------------------------------//
+
+app.get("/subtitle-search", (req, res) => {
+  const query = normalizeSearchQuery(req.query.q);
+  if (!query) return res.status(400).json({ error: "Invalid query" });
+  res.json({ results: searchSubtitles(query) });
 });

@@ -1,0 +1,33 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Subtitle Search</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a href="/">
+      <h1 id="pageTitleWrapper">
+        <img src="/images/logo.png" alt="Title Logo" />
+        <span id="pageTitle">Subtitle Search</span>
+      </h1>
+    </a>
+    <main>
+      <form id="subtitleSearchForm">
+        <input
+          id="subtitleQuery"
+          type="text"
+          maxlength="50"
+          size="50"
+          required
+          autofocus
+        />
+        <button type="submit">search subtitles</button>
+      </form>
+      <p id="subtitleStatus"></p>
+      <ul id="subtitleResults"></ul>
+    </main>
+    <script src="shared.js"></script>
+    <script src="subtitlesPage.js"></script>
+  </body>
+</html>
